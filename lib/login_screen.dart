@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:odoo_rpc/odoo_rpc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/odoo_service.dart';
 import 'services/voip_service.dart';
+import 'services/notification_service.dart';
+import 'services/update_service.dart';
 import 'screens/crm_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -23,6 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String _selectedServer = "Demo"; // "Demo" or "Prisma"
+  bool _showAdvanced = false;
 
   @override
   void initState() {
@@ -46,6 +49,13 @@ class _LoginScreenState extends State<LoginScreen> {
         if (prefs.containsKey('odoo_pass')) {
           _passwordController.text = prefs.getString('odoo_pass')!;
         }
+
+        // Auto-detect server based on URL for better UX
+        if (_urlController.text.contains("prismahexagon.com")) {
+          _selectedServer = "Prisma";
+        } else {
+          _selectedServer = "Demo";
+        }
       });
     }
   }
@@ -58,6 +68,19 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString('odoo_pass', _passwordController.text);
   }
 
+  void _onServerChanged(String server) {
+    setState(() {
+      _selectedServer = server;
+      if (server == "Prisma") {
+        _urlController.text = "https://app.prismahexagon.com";
+        _dbController.text = "test19";
+      } else {
+        _urlController.text = "http://147.93.40.102:8071";
+        _dbController.text = "testmdb";
+      }
+    });
+  }
+
   Future<void> _login() async {
     setState(() => _isLoading = true);
 
@@ -65,52 +88,46 @@ class _LoginScreenState extends State<LoginScreen> {
       // Guardar credenciales para futuro uso
       await _saveCredentials();
 
-      // Inicializamos el cliente (LEGACY)
+      // Inicializamos el cliente
       OdooService.instance.init(_urlController.text);
 
-      // Intentamos autenticar usando el servicio legacy
+      // Autenticación robusta
       await OdooService.instance.authenticate(
         _dbController.text,
         _userController.text,
         _passwordController.text,
       );
 
-      // VOIP INITIALIZATION (Added check)
-      try {
-        await VoipService.instance.initialize();
-      } catch (e) {
-        debugPrint("VoIP Init Warning: $e");
-        // Don't block login if VoIP fails, but log it
+      // Start services
+      if (!OdooService.instance.isPrismaMode) {
+        try {
+          await OdooService.instance.initWhatsAppClient();
+        } catch (_) {}
       }
 
-      // Si pasa, vamos a la pantalla principal
+      try {
+        await VoipService.instance.initialize();
+      } catch (_) {}
+
+      await NotificationService.instance.initialize();
+      NotificationService.instance.startPolling();
+
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const CrmDashboardScreen()),
         );
       }
-    } on OdooException catch (e) {
-      // Manejo básico de errores
+    } on OdooServiceException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error de conexión: ${e.message}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
-      debugPrint('Login Error: $e');
-    } on FormatException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error de Formato: Revise la URL del servidor.'),
-          ),
-        );
-      }
-      debugPrint('Format Error (Posible URL incorrecta): $e');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error inesperado: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) {
@@ -121,7 +138,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Stitch Design Implementation
     final primaryColor = Theme.of(context).primaryColor;
     final textMuted = Theme.of(context).colorScheme.onSurfaceVariant;
 
@@ -136,109 +152,126 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // LOGO SECTION
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 20,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
+                      // LOGO
+                      Hero(
+                        tag: 'logo',
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
                           child: Image.asset(
                             'assets/image/logo_mdb.png',
                             fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              // Fallback si no existe el logo
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: primaryColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  Icons.rocket_launch,
-                                  color: Colors.white,
-                                  size: 60,
-                                ),
-                              );
-                            },
+                            errorBuilder: (context, _, __) =>
+                                const Icon(Icons.rocket_launch, size: 40),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        "Markdebrand",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                      Text(
-                        "CRM & SALES PORTAL",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.0,
-                          color: textMuted,
-                        ),
-                      ),
+                      const SizedBox(height: 32),
 
-                      const SizedBox(height: 40),
-
-                      // WELCOME TEXT
+                      // WELCOME
                       const Text(
                         "Welcome back",
                         style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
-                        "Please enter your credentials",
-                        style: TextStyle(fontSize: 15, color: textMuted),
+                        "Enter your credentials to continue",
+                        style: TextStyle(color: textMuted, fontSize: 16),
                       ),
+                      const SizedBox(height: 40),
 
+                      // SERVER SELECTOR
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildServerButton("Demo", "Staging"),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildServerButton("Prisma", "Production"),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 32),
 
-                      // FORM SECTION
+                      // FORM
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (_showAdvanced) ...[
+                            _buildLabel("Server URL"),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _urlController,
+                              decoration: const InputDecoration(
+                                hintText: "https://odoo.example.com",
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildLabel("Database"),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _dbController,
+                              decoration: const InputDecoration(
+                                hintText: "my_database",
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
                           _buildLabel("Email / Username"),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _userController,
                             keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
-                              hintText: "name@company.com",
+                              hintText: "user@example.com",
+                              prefixIcon: Icon(Icons.person_outline, size: 20),
                             ),
                           ),
-                          const SizedBox(height: 16),
-
+                          const SizedBox(height: 20),
                           _buildLabel("Password"),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _login(),
                             decoration: InputDecoration(
                               hintText: "••••••••",
+                              prefixIcon: const Icon(
+                                Icons.lock_outline,
+                                size: 20,
+                              ),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                  color: Colors.grey,
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  size: 20,
                                 ),
                                 onPressed: () => setState(
                                   () => _obscurePassword = !_obscurePassword,
@@ -249,26 +282,62 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
 
                       // BUTTON
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  "Log In",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              )
-                            : const Text("Log In"),
+                        ),
                       ),
 
                       const SizedBox(height: 24),
 
-                      // FOOTER LINKS & BIOMETRICS
+                      // ADVANCED TOGGLE
+                      TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _showAdvanced = !_showAdvanced),
+                        icon: Icon(
+                          _showAdvanced
+                              ? Icons.settings
+                              : Icons.settings_outlined,
+                          size: 16,
+                        ),
+                        label: Text(
+                          _showAdvanced
+                              ? "Hide Advanced Settings"
+                              : "Advanced Settings",
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // FOOTER LINKS
                       TextButton(
                         onPressed: () {}, // Forgot password placeholder
                         child: Text(
@@ -289,9 +358,12 @@ class _LoginScreenState extends State<LoginScreen> {
             // FOOTER COPYRIGHT
             Padding(
               padding: const EdgeInsets.all(24.0),
-              child: Text(
-                "© 2024 Markdebrand Agency • v2.4.0",
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              child: GestureDetector(
+                onTap: () => UpdateService.instance.showUpdateDialog(context),
+                child: Text(
+                  "© 2024 Markdebrand Agency • v2.4.0 (Tap to Check for Updates)",
+                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                ),
               ),
             ),
           ],
@@ -310,6 +382,53 @@ class _LoginScreenState extends State<LoginScreen> {
           fontWeight: FontWeight.w700,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
           letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServerButton(String name, String subtitle) {
+    final isSelected = _selectedServer == name;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    return GestureDetector(
+      onTap: () => _onServerChanged(name),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Column(
+          children: [
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? primaryColor : const Color(0xFF64748B),
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isSelected
+                    ? primaryColor.withValues(alpha: 0.7)
+                    : const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
         ),
       ),
     );

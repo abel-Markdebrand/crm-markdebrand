@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree View -->
+    <record id="view_whatsapp_group_tree" model="ir.ui.view">
+        <field name="name">whatsapp.group.tree</field>
+        <field name="model">whatsapp.group</field>
+        <field name="arch" type="xml">
+            <list string="WhatsApp Groups" decoration-info="status == 'pending'" decoration-success="status == 'accepted'" decoration-muted="status == 'rejected'">
+                <field name="name"/>
+                <field name="whatsapp_id"/>
+                <field name="status" widget="badge" decoration-info="status == 'pending'" decoration-success="status == 'accepted'" decoration-danger="status == 'rejected'"/>
+                <field name="active_channel_id"/>
+                <button name="action_approve" string="Approve" type="object" icon="fa-check" invisible="status == 'accepted'"/>
+                <button name="action_reject" string="Reject" type="object" icon="fa-ban" invisible="status == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_whatsapp_group_form" model="ir.ui.view">
+        <field name="name">whatsapp.group.form</field>
+        <field name="model">whatsapp.group</field>
+        <field name="arch" type="xml">
+            <form string="WhatsApp Group">
+                <header>
+                    <button name="action_approve" string="Approve Group" type="object" class="oe_highlight" invisible="status == 'accepted'"/>
+                    <button name="action_reject" string="Reject Group" type="object" class="oe_link" invisible="status == 'rejected'"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1><field name="name" placeholder="e.g. Support Team"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="image_128" widget="image" class="oe_avatar" options="{'preview_image': 'image_128'}"/>
+                            <button name="action_fetch_image" string="Fetch Image" type="object" class="btn-link" help="Download group icon from WhatsApp"/>
+                        </group>
+                        <group>
+                            <field name="whatsapp_id" readonly="1"/>
+                            <field name="active_channel_id" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                 <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_whatsapp_group" model="ir.actions.act_window">
+        <field name="name">WhatsApp Groups</field>
+        <field name="res_model">whatsapp.group</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No groups detected yet.
+            </p>
+            <p>
+                Run "Sync Groups" to fetch existing groups from WhatsApp, or wait for incoming messages.
+            </p>
+        </field>
+    </record>
+
+    <!-- Server Action for Sync -->
+    <record id="action_sync_whatsapp_groups" model="ir.actions.server">
+        <field name="name">Sync Groups from WhatsApp</field>
+        <field name="model_id" ref="model_whatsapp_group"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_fetch_groups()</field>
+    </record>
+
+    <!-- Menu -->
+    <menuitem id="menu_whatsapp_group"
+              name="Groups"
+              parent="menu_whatsapp_root"
+              action="action_whatsapp_group"
+              sequence="20"/>
+              
+    <menuitem id="menu_whatsapp_group_sync"
+              name="Sync Groups"
+              parent="menu_whatsapp_group"
+              action="action_sync_whatsapp_groups"
+              sequence="10"/>
+</odoo>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Assign Administrator group to the main Admin user -->
+        <!-- Odoo 19: groups_id might be renamed to group_ids, we'll try group_ids first based on research -->
+        <record id="base.user_admin" model="res.users">
+            <field name="group_ids" eval="[(4, ref('whatsapps_integration.group_whatsapp_admin'))]"/>
+        </record>
+    </data>
+</odoo>

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'pdf_viewer_screen.dart';
 import '../services/odoo_service.dart';
 import '../utils/odoo_utils.dart';
 
@@ -143,17 +147,73 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 
   Future<void> _viewInvoicePdf() async {
-    // Feature disabled by removal of http package
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("PDF viewing is disabled in this version.")),
-    );
-  }
+    final baseUrl = _odoo.baseURL;
+    final sessionId = _odoo.session?.id;
+    if (baseUrl.isEmpty || sessionId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Cannot view PDF: Link or Session invalid"),
+          ),
+        );
+      }
+      return;
+    }
 
-  Future<void> _sendInvoice() async {
-    // Feature disabled by removal of http package
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("PDF sending is disabled in this version.")),
-    );
+    // Construct URL (Odoo report URL)
+    final url =
+        "$baseUrl/report/pdf/account.report_invoice/${widget.invoiceId}";
+
+    setState(() => _isLoading = true);
+
+    try {
+      debugPrint("Downloading PDF from: $url");
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Cookie': 'session_id=$sessionId'},
+      );
+
+      if (response.statusCode == 200) {
+        // Parse Content-Type to verify it is a PDF
+        final contentType = response.headers['content-type'];
+        if (contentType != null && !contentType.contains('application/pdf')) {
+          // It might be an HTML error page from Odoo (redirect to login)
+          throw Exception(
+            "Server returned ${contentType} instead of PDF. Session might be expired.",
+          );
+        }
+
+        final bytes = response.bodyBytes;
+        final dir = await getTemporaryDirectory();
+        final filename = "invoice_${widget.invoiceId}.pdf";
+        final file = File('${dir.path}/$filename');
+
+        await file.writeAsBytes(bytes, flush: true);
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PdfViewerScreen(
+                path: file.path,
+                title: _invoice?['name'] ?? "Invoice",
+              ),
+            ),
+          );
+        }
+      } else {
+        throw Exception("Server returned status code ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Error viewing PDF: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error viewing PDF: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -234,9 +294,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: stateColor.withOpacity(0.1),
+              color: stateColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(50),
-              border: Border.all(color: stateColor.withOpacity(0.2)),
+              border: Border.all(color: stateColor.withValues(alpha: 0.2)),
             ),
             child: Text(
               stateLabel.toUpperCase(),
@@ -257,543 +317,565 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 120), // Padding for footer
-        child: Column(
-          children: [
-            // Section: Source Order
-            if (sourceDoc.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12), // rounded-xl
-                    border: Border.all(
-                      color: const Color(0xFFF1F5F9),
-                    ), // border-slate-100
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                children: [
+                  // Section: Source Order
+                  if (sourceDoc.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF007AFF,
+                                ).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.description,
+                                color: Color(0xFF007AFF),
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              // Added Expanded to prevent overflow
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "SOURCE ORDER",
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        sourceDoc,
+                                        style: const TextStyle(
+                                          color: Color(0xFF0F172A),
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Flexible(
+                                        // Added Flexible to allow truncation
+                                        child: Text(
+                                          " • Generated from Quote",
+                                          overflow: TextOverflow
+                                              .ellipsis, // Ensure ellipsis on overflow
+                                          style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Removed Spacer() to let Expanded take available space
+                            const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFFCBD5E1),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
+
+                  // Section: Info
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Customer Header
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "CUSTOMER INFORMATION",
+                                        style: TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        partnerName,
+                                        style: const TextStyle(
+                                          color: Color(0xFF0F172A),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  "Edit",
+                                  style: TextStyle(
+                                    color: const Color(0xFF007AFF),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFF8FAFC)),
+                          // Dates Grid
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "ISSUE DATE",
+                                        style: TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.calendar_today,
+                                            size: 14,
+                                            color: Color(0xFF94A3B8),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            invoiceDate.isEmpty
+                                                ? '-'
+                                                : invoiceDate,
+                                            style: const TextStyle(
+                                              color: Color(0xFF0F172A),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "DUE DATE",
+                                        style: TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.event,
+                                            size: 14,
+                                            color: Color(0xFF007AFF),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            dueDate.isEmpty ? '-' : dueDate,
+                                            style: const TextStyle(
+                                              color: Color(0xFF0F172A),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+
+                  // Section: Itemized Lines
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "ITEMIZED LINES",
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (isDraft)
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.add_circle,
+                                color: Color(0xFF007AFF),
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Add Line",
+                                style: TextStyle(
+                                  color: Color(0xFF007AFF),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // List of Lines
+                  Container(
+                    decoration: const BoxDecoration(
+                      border: Border.symmetric(
+                        horizontal: BorderSide(color: Color(0xFFF1F5F9)),
+                      ),
+                    ),
+                    child: Column(
+                      children: _lines.map((l) {
+                        final name = OdooUtils.safeString(l['name']);
+                        final qty = l['quantity'] ?? 0;
+                        final price = l['price_unit'] ?? 0;
+                        final total = l['price_total'] ?? 0;
+
+                        return Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 1),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        "$qty x \$${price.toStringAsFixed(2)}",
+                                        style: const TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "\$${total.toStringAsFixed(2)}",
+                                    style: const TextStyle(
+                                      color: Color(0xFF0F172A),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    "VAT Excl.",
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  // Totals Section
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildTotalRow(
+                            "Subtotal",
+                            _invoice!['amount_untaxed'],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTotalRow("Taxes", _invoice!['amount_tax']),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              const Text(
+                                "Total Amount",
+                                style: TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "\$${(_invoice!['amount_total'] as num).toStringAsFixed(2)}",
+                                    style: const TextStyle(
+                                      color: Color(0xFF007AFF),
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  const Text(
+                                    "USD CURRENCY",
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Footer
+          Container(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              16 + MediaQuery.of(context).padding.bottom,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xE6FFFFFF),
+              border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    if (isDraft)
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _confirmInvoice,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF007AFF),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            elevation: 4,
+                            shadowColor: const Color(
+                              0xFF007AFF,
+                            ).withValues(alpha: 0.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.check_circle_outline, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                "Validate & Issue",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _registerPayment,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF34C759),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            elevation: 4,
+                            shadowColor: const Color(
+                              0xFF34C759,
+                            ).withValues(alpha: 0.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.payments_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                "Register Payment",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 48,
                   child: Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF007AFF,
-                          ).withOpacity(0.1), // bg-primary/10
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.description,
-                          color: Color(0xFF007AFF),
-                          size: 24,
+                      Expanded(
+                        child: _buildSecondaryButton(
+                          Icons.save_outlined,
+                          "Save",
+                          () {},
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "SOURCE ORDER",
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8), // text-slate-400
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Text(
-                                sourceDoc,
-                                style: const TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Text(
-                                " • Generated from Quote",
-                                style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      Expanded(
+                        child: _buildSecondaryButton(
+                          Icons.picture_as_pdf,
+                          "PDF",
+                          _viewInvoicePdf,
+                        ),
                       ),
-                      const Spacer(),
-                      const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+                      const SizedBox(width: 12),
+                      Container(
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.more_horiz,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-
-            // Section: Info
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16), // rounded-2xl
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Customer Header
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "CUSTOMER INFORMATION",
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  partnerName,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0F172A),
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                // Placeholder specific address if we fetched it, for now just name
-                              ],
-                            ),
-                          ),
-                          Text(
-                            "Edit",
-                            style: TextStyle(
-                              color: const Color(0xFF007AFF),
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: Color(0xFFF8FAFC)),
-                    // Dates Grid
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "ISSUE DATE",
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.calendar_today,
-                                      size: 14,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      invoiceDate.isEmpty ? '-' : invoiceDate,
-                                      style: const TextStyle(
-                                        color: Color(0xFF0F172A),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "DUE DATE",
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.event,
-                                      size: 14,
-                                      color: Color(0xFF007AFF),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      dueDate.isEmpty ? '-' : dueDate,
-                                      style: const TextStyle(
-                                        color: Color(0xFF0F172A),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Section: Itemized Lines
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "ITEMIZED LINES",
-                    style: TextStyle(
-                      color: Color(0xFF0F172A),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  if (isDraft)
-                    Row(
-                      children: const [
-                        Icon(
-                          Icons.add_circle,
-                          color: Color(0xFF007AFF),
-                          size: 16,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          "Add Line",
-                          style: TextStyle(
-                            color: Color(0xFF007AFF),
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-
-            // List of Lines
-            Container(
-              decoration: const BoxDecoration(
-                border: Border.symmetric(
-                  horizontal: BorderSide(color: Color(0xFFF1F5F9)),
-                ),
-              ),
-              child: Column(
-                children: _lines.map((l) {
-                  final name = OdooUtils.safeString(l['name']);
-                  final qty = l['quantity'] ?? 0;
-                  final price = l['price_unit'] ?? 0;
-                  final total = l['price_total'] ?? 0;
-
-                  return Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    margin: const EdgeInsets.only(bottom: 1), // Divider effect
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-
-                              // Description placeholder if distinct from name, usually assumed same in MVP
-                              Container(
-                                margin: const EdgeInsets.only(top: 8),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  "$qty x \$${price.toStringAsFixed(2)}",
-                                  style: const TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              "\$${total.toStringAsFixed(2)}",
-                              style: const TextStyle(
-                                color: Color(0xFF0F172A),
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              "VAT Excl.", // Simplified tax label
-                              style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-
-            // Totals Section
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
-                ),
-                child: Column(
-                  children: [
-                    _buildTotalRow("Subtotal", _invoice!['amount_untaxed']),
-                    const SizedBox(height: 12),
-                    _buildTotalRow("Taxes", _invoice!['amount_tax']),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        const Text(
-                          "Total Amount",
-                          style: TextStyle(
-                            color: Color(0xFF0F172A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              "\$${(_invoice!['amount_total'] as num).toStringAsFixed(2)}",
-                              style: const TextStyle(
-                                color: Color(0xFF007AFF),
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const Text(
-                              "USD CURRENCY",
-                              style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // Fixed Footer
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          16 + MediaQuery.of(context).padding.bottom,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xE6FFFFFF), // bg-white/90
-          border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Primary Actions Row
-            Row(
-              children: [
-                if (isDraft)
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _confirmInvoice,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF007AFF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 4,
-                        shadowColor: const Color(0xFF007AFF).withOpacity(0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.check_circle_outline, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            "Validate & Issue",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _registerPayment,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF34C759), // ios-green
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 4,
-                        shadowColor: const Color(0xFF34C759).withOpacity(0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.payments_outlined, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            "Register Payment",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
-            const SizedBox(height: 12),
-            // Secondary Actions Row
-            SizedBox(
-              height: 48,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildSecondaryButton(
-                      Icons.save_outlined,
-                      "Save",
-                      () {},
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSecondaryButton(
-                      Icons.send_outlined,
-                      "Send",
-                      _sendInvoice,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 48,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.more_horiz,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

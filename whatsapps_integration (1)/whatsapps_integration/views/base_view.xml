@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Root Menu -->
+    <menuitem id="menu_whatsapp_root"
+              name="WhatsApp Integration"
+              web_icon="whatsapps_integration,static/description/icon.png"
+              groups="group_whatsapp_admin"
+              sequence="10"/>
+
+    <!-- Configuration Menu -->
+    <menuitem id="menu_whatsapp_config"
+              name="Configuration"
+              parent="menu_whatsapp_root"
+              groups="group_whatsapp_admin"
+              sequence="100"/>
+</odoo>

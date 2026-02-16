@@ -20,7 +20,7 @@ class LeadDetailScreen extends StatelessWidget {
           // Sticky App Bar
           SliverAppBar(
             pinned: true,
-            backgroundColor: backgroundLight.withOpacity(0.9),
+            backgroundColor: backgroundLight.withValues(alpha: 0.9),
             elevation: 0,
             leading: IconButton(
               icon: Icon(Icons.arrow_back_ios, color: textMain, size: 20),
@@ -58,7 +58,7 @@ class LeadDetailScreen extends StatelessWidget {
                       border: Border.all(color: Colors.grey[200]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -97,7 +97,9 @@ class LeadDetailScreen extends StatelessWidget {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: primaryColor.withOpacity(0.1),
+                                      color: primaryColor.withValues(
+                                        alpha: 0.1,
+                                      ),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
@@ -229,7 +231,7 @@ class LeadDetailScreen extends StatelessWidget {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
+                              color: primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(Icons.phone, color: primaryColor),
@@ -251,7 +253,7 @@ class LeadDetailScreen extends StatelessWidget {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
+                              color: primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(Icons.mail, color: primaryColor),
@@ -289,7 +291,7 @@ class LeadDetailScreen extends StatelessWidget {
                       border: Border.all(color: Colors.grey[200]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),

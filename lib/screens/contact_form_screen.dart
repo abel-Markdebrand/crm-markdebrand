@@ -581,12 +581,12 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
     // If we have a local file, show it
     if (_imageFile != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12), // Match parent radius
         child: Image.file(
           _imageFile!,
           fit: BoxFit.cover,
-          width: 80,
-          height: 80,
+          width: double.infinity,
+          height: double.infinity,
         ),
       );
     }
@@ -596,12 +596,12 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
       try {
         final bytes = base64Decode(_base64Image!);
         return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12), // Match parent radius
           child: Image.memory(
             bytes,
             fit: BoxFit.cover,
-            width: 80,
-            height: 80,
+            width: double.infinity,
+            height: double.infinity,
             errorBuilder: (context, error, stackTrace) {
               // If image fails to load, show placeholder
               return const Icon(
@@ -973,27 +973,6 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
               vertical: 16,
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReadOnlyField(String label, String value) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(value, style: const TextStyle(color: Colors.grey)),
         ),
       ],
     );

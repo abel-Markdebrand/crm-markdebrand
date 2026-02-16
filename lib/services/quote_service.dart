@@ -162,63 +162,66 @@ class QuoteService {
         }
       }
 
-      debugPrint("Transactional: Creating Invoice via public methods...");
-      // dynamic result; // Removed unused variable
-      // 2. Direct Invoice Creation (Bypassing Wizard to avoid "Registration" errors)
+      // 2. Use Wizard to Create Invoice (Standard Odoo Flow)
       try {
-        // Try public 'action_invoice_create' (common in Odoo 12-14)
-        await _odoo.callKw(
-          model: ApiRoutes.sales.model,
-          method: 'action_invoice_create',
-          args: [
-            [orderId],
-          ],
-        );
-      } catch (e1) {
-        debugPrint(
-          "action_invoice_create failed ($e1), reverting to Wizard...",
-        );
-        // Revert to Wizard approach but with skip context
-        try {
-          final wizId = await _odoo.callKw(
-            model: 'sale.advance.payment.inv',
-            method: 'create',
-            args: [
-              {
-                'advance_payment_method': 'delivered',
-                'deduct_down_payments': true,
-              },
-            ],
-            kwargs: {
-              'context': {
-                'active_ids': [orderId],
-                'active_model': 'sale.order',
-              },
-            },
-          );
+        debugPrint("Transactional: Launching Invoice Wizard...");
 
+        // Step A: Create the Wizard Record
+        final wizId = await _odoo.callKw(
+          model: 'sale.advance.payment.inv',
+          method: 'create',
+          args: [
+            {
+              'advance_payment_method': 'delivered',
+              'deduct_down_payments': true,
+            },
+          ],
+          kwargs: {
+            'context': {
+              'active_ids': [orderId],
+              'active_model': 'sale.order',
+              'active_id': orderId,
+            },
+          },
+        );
+
+        if (wizId is int) {
+          // Step B: Call 'create_invoices' on the created wizard
+          // Note: 'create_invoices' usually returns a dictionary action (window action)
+          // We ignore the return value and check the order for invoice_ids
           await _odoo.callKw(
             model: 'sale.advance.payment.inv',
             method: 'create_invoices',
             args: [wizId],
             kwargs: {
+              // IMPORTANT: Context must be preserved for the wizard to know which order to invoice
               'context': {
                 'active_ids': [orderId],
                 'active_model': 'sale.order',
+                'active_id': orderId,
                 'open_invoices': false,
               },
             },
           );
-        } catch (e2) {
+        } else {
+          throw Exception("Failed to create Invoice Wizard");
+        }
+      } catch (e) {
+        debugPrint("Wizard Invoice Creation failed: $e");
+        // Check if it's "Nothing to invoice" - Odoo raises UserError
+        if (e.toString().contains("Nothing to invoice")) {
+          // We can optionally ignore this if we just want to return existing invoices
           debugPrint(
-            "Wizard failed too ($e2). Checking if invoice was created...",
+            "Odoo says nothing to invoice. Proceeding to check existing invoices.",
           );
-          // Check if invoice exists anyway before giving up
+        } else {
+          rethrow;
         }
       }
 
       debugPrint("Transactional: Retrieving generated Invoice ID...");
-      // 4. Retrieve the Invoice ID from the Order
+      // 3. Retrieve the Invoice ID from the Order
+      // Retrying a few times might be needed if Odoo is slow, but usually it's synchronous.
       final orderData = await _odoo.callKw(
         model: ApiRoutes.sales.model,
         method: 'read',
@@ -231,11 +234,15 @@ class QuoteService {
       if (orderData != null && orderData is List && orderData.isNotEmpty) {
         final invoiceIds = orderData[0]['invoice_ids'];
         if (invoiceIds is List && invoiceIds.isNotEmpty) {
-          debugPrint("Success: Invoice Created with ID ${invoiceIds[0]}");
-          return invoiceIds[0] as int;
+          debugPrint("Success: Invoice Created with ID ${invoiceIds.last}");
+          return invoiceIds.last as int;
         }
       }
 
+      // If we got here, maybe no invoice was created?
+      debugPrint(
+        "Warning: No invoice ID found on order $orderId after wizard execution.",
+      );
       return null;
     } catch (e) {
       debugPrint("Error in convertToInvoice: $e");

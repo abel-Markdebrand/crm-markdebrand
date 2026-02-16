@@ -133,17 +133,17 @@ class _BiometricAuthModalState extends State<BiometricAuthModal>
         children: [
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(color: Colors.black.withOpacity(0.1)),
+            child: Container(color: Colors.black.withValues(alpha: 0.1)),
           ),
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -235,7 +235,7 @@ class _BiometricAuthModalState extends State<BiometricAuthModal>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFF0D59F2).withOpacity(0.2),
+                    color: const Color(0xFF0D59F2).withValues(alpha: 0.2),
                     width: 2,
                   ),
                 ),

@@ -72,6 +72,13 @@ class CrmService {
           'description',
           'phone',
           'email_from',
+          'street',
+          'city',
+          'zip',
+          'country_id',
+          'function',
+          'website',
+          'priority',
         ],
       },
     );
@@ -82,17 +89,23 @@ class CrmService {
   }
 
   /// Obtiene leads por etapa para el usuario actual (o todos si es demo/admin)
-  Future<List<CrmLead>> getPipeline(int stageId) async {
+  Future<List<CrmLead>> getPipeline(int stageId, {String? searchQuery}) async {
+    final domain = [
+      ['stage_id', '=', stageId],
+      ['type', '=', 'opportunity'],
+    ];
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      domain.add(['name', 'ilike', searchQuery]);
+    }
+
     final result = await _odooService.callKw(
       model: ApiRoutes.crm.model,
       method: ApiRoutes.crm.searchRead,
       args: [],
       kwargs: {
         'context': {'bin_size': true},
-        'domain': [
-          ['stage_id', '=', stageId],
-          ['type', '=', 'opportunity'],
-        ],
+        'domain': domain,
         'fields': [
           'id',
           'name',
@@ -102,6 +115,13 @@ class CrmService {
           'description',
           'phone',
           'email_from',
+          'street',
+          'city',
+          'zip',
+          'country_id',
+          'function',
+          'website',
+          'priority',
         ],
         'limit': 50,
       },

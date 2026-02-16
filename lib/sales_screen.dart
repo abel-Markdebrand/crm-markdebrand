@@ -61,7 +61,7 @@ class _SalesScreenState extends State<SalesScreen> {
                   border: Border.all(color: Colors.grey[200]!),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -74,7 +74,9 @@ class _SalesScreenState extends State<SalesScreen> {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,

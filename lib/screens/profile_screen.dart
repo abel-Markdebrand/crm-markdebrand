@@ -90,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             border: Border.all(color: Colors.white, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -135,7 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
@@ -186,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
@@ -309,7 +309,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (base64String is String && base64String.isNotEmpty) {
       try {
         final bytes = base64Decode(base64String);
-        return Image.memory(bytes, fit: BoxFit.cover);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey[300],
+              child: const Icon(Icons.person, size: 48, color: Colors.white),
+            );
+          },
+        );
       } catch (e) {
         return Container(
           color: Colors.grey[300],

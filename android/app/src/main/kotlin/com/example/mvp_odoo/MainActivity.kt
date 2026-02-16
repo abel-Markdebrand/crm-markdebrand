@@ -1,4 +1,4 @@
-package com.example.mvp_odoo
+package com.markdebrand.crm
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

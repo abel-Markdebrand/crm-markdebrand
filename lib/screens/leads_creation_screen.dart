@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/odoo_service.dart';
+import '../models/crm_models.dart';
 
 class LeadCreationScreen extends StatefulWidget {
-  const LeadCreationScreen({super.key});
+  final CrmLead? lead; // Added for Edit Mode
+
+  const LeadCreationScreen({super.key, this.lead});
 
   @override
   State<LeadCreationScreen> createState() => _LeadCreationScreenState();
@@ -52,10 +55,6 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
 
   // 6. NOTES (Step 2)
   final _notesController = TextEditingController();
-
-  // Unused but kept to match Odoo fields physically if needed later
-  final _paymentTermsController = TextEditingController();
-  final _priceListController = TextEditingController();
 
   // --- SELECTION OPTIONS ---
   static const List<String> _opportunityNames = [
@@ -150,7 +149,31 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
   void initState() {
     super.initState();
     _teamController.text = "Sales";
-    _loadInitialData();
+    if (widget.lead != null) {
+      _loadLeadData();
+    } else {
+      _loadInitialData();
+    }
+  }
+
+  void _loadLeadData() {
+    final l = widget.lead!;
+    _nameController.text = l.name;
+    _revenueController.text = l.expectedRevenue.toString();
+    _emailController.text = l.email ?? "";
+    _phoneController.text = l.phone ?? "";
+    _contactNameController.text = l.partnerName ?? "";
+
+    // Parse description for custom fields if possible, or just load native fields
+    // For now we just load what we have available in CrmLead model
+    // Note: CrmLead model might accept more fields if we update it,
+    // but for now we map what we have.
+
+    // Attempt to parse description for our "Stitch" custom fields logic
+    if (l.description != null) {
+      _notesController.text = l.description!;
+      // TODO: enhanced parsing if needed
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -237,7 +260,9 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
                           });
                           setState(() {});
                         },
-                        selectedColor: const Color(0xFF0D59F2).withOpacity(0.2),
+                        selectedColor: const Color(
+                          0xFF0D59F2,
+                        ).withValues(alpha: 0.2),
                         checkmarkColor: const Color(0xFF0D59F2),
                       );
                     }).toList(),
@@ -264,56 +289,98 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Divider(),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: options.length,
-                    itemBuilder: (context, index) {
-                      final option = options[index];
-                      final isSelected = option == currentValue;
-                      return ListTile(
-                        title: Text(
-                          option,
-                          style: TextStyle(
-                            color: isSelected
-                                ? const Color(0xFF0D59F2)
-                                : Colors.black87,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+        String searchQuery = "";
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredOptions = options
+                .where(
+                  (option) =>
+                      option.toLowerCase().contains(searchQuery.toLowerCase()),
+                )
+                .toList();
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check, color: Color(0xFF0D59F2))
-                            : null,
-                        onTap: () {
-                          onSelected(option);
-                          Navigator.pop(context);
+                          const SizedBox(height: 12),
+                          TextField(
+                            decoration: InputDecoration(
+                              hintText: "Search...",
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: const Color(0xFFF1F5F9),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            onChanged: (value) {
+                              setModalState(() {
+                                searchQuery = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: filteredOptions.length,
+                        itemBuilder: (context, index) {
+                          final option = filteredOptions[index];
+                          final isSelected = option == currentValue;
+                          return ListTile(
+                            title: Text(
+                              option,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? const Color(0xFF0D59F2)
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Color(0xFF0D59F2),
+                                  )
+                                : null,
+                            onTap: () {
+                              onSelected(option);
+                              Navigator.pop(context);
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
-                ),
-              ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -322,7 +389,6 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
   }
 
   Future<void> _submit() async {
-    // If we are on step 2, we assume step 1 was validated before entering.
     setState(() => _isLoading = true);
 
     try {
@@ -334,18 +400,13 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
         'website': _websiteController.text,
         'email_from': _emailController.text,
         'phone': _phoneController.text,
-
         'street': _streetController.text,
         'city': _cityController.text,
         'zip': _zipController.text,
-
-        // Financials
         'expected_revenue': double.tryParse(_revenueController.text) ?? 0.0,
         'priority': _priority.toString(),
-
-        // Manual "Description" construction including all the fields that aren't native or need lookup
         'description':
-            '${_notesController.text}\n\n' // Internal Notes first
+            '${_notesController.text}\n\n'
             '--- Auto-Generated Details ---\n'
             'Niche: ${_selectedNiche ?? "Undefined"}\n'
             'Tags: ${_selectedTags.map((t) => t['name']).join(", ")}\n'
@@ -356,15 +417,31 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
             'Referred By: ${_referredByController.text}\n'
             'Sales Team: ${_teamController.text}\n'
             'Salesperson: ${_salespersonController.text}',
-
         'type': 'opportunity',
       };
 
-      await _odoo.createLead(data);
+      if (widget.lead == null) {
+        await _odoo.createLead(data);
+      } else {
+        await _odoo.callKw(
+          model: 'crm.lead',
+          method: 'write',
+          args: [
+            [widget.lead!.id],
+            data,
+          ],
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Opportunity Created Successfully!")),
+          SnackBar(
+            content: Text(
+              widget.lead == null
+                  ? "Opportunity Created!"
+                  : "Opportunity Updated!",
+            ),
+          ),
         );
         Navigator.pop(context, true);
       }
@@ -456,7 +533,9 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
             ),
           ),
           Text(
-            _currentStep == 0 ? "New Opportunity" : "Internal Notes",
+            widget.lead == null
+                ? (_currentStep == 0 ? "New Opportunity" : "Internal Notes")
+                : "Edit Opportunity",
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -467,7 +546,9 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
           TextButton(
             onPressed: _currentStep == 0 ? _nextStep : _submit,
             child: Text(
-              _currentStep == 0 ? "Next" : "Create",
+              _currentStep == 0
+                  ? "Next"
+                  : (widget.lead == null ? "Create" : "Update"),
               style: const TextStyle(
                 color: Color(0xFF0D59F2),
                 fontWeight: FontWeight.bold,
@@ -675,16 +756,6 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
             ),
             const SizedBox(height: 24),
 
-            // DATES & TERMS
-            _buildSectionTitle("DATES & TERMS"),
-            _buildCard(
-              children: [
-                _buildStitchTextField("Payment Terms", _paymentTermsController),
-                const SizedBox(height: 16),
-                _buildStitchTextField("Price List", _priceListController),
-              ],
-            ),
-
             const SizedBox(height: 48), // Bottom padding
           ],
         ),
@@ -744,9 +815,11 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 elevation: 0,
               ),
-              child: const Text(
-                "Create Opportunity",
-                style: TextStyle(
+              child: Text(
+                widget.lead == null
+                    ? "Create Opportunity"
+                    : "Update Opportunity",
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -955,7 +1028,7 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: (tag['color'] != null && tag['color'] != 0)
-                          ? Colors.blue.withOpacity(0.1)
+                          ? Colors.blue.withValues(alpha: 0.1)
                           : const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFFBFDBFE)),

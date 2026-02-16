@@ -7,6 +7,8 @@ import 'dart:io';
 
 import '../models/sale.dart';
 import '../models/voip_config.dart';
+import '../models/whatsapp_models.dart';
+import 'package:path_provider/path_provider.dart';
 
 // Definición de excepciones personalizadas para manejo de errores de negocio
 class ClientRequiredException implements Exception {
@@ -35,38 +37,296 @@ class OdooService {
 
   OdooClient? _client;
   String? _baseUrl; // Added for VoIP Controller access
+  int? _mainPartnerId; // Cached for notifications/Discuss
+
+  // --- SECONDARY CLIENT FOR WHATSAPP ---
+  OdooClient? _whatsAppClient;
+  bool _isWhatsAppInitializing = false;
+  int? _whatsappUid;
+  final String _whatsappUrl = "https://app.prismahexagon.com";
+  final String _whatsappDb = "test19";
+  final String _whatsappUser =
+      "admin"; // TODO: Reemplazar por usuario oficial de producción
+  final String _whatsappPassword =
+      "310af0e42590d120613b006ff1144072069dc262"; // OFFICIAL API KEY
+  // -------------------------------------
+
+  // --- PRISMA PRIMARY MODE STATE ---
+  bool _isPrismaMode = false;
+  int? _prismaUid;
+  String? _prismaApiKey;
+  String? _prismaDb;
+  // ---------------------------------
 
   // Getter público para verificar si está inicializado (útil para guardias de navegación)
-  bool get isInitialized => _client != null;
+  bool get isInitialized =>
+      _client != null || (_isPrismaMode && _prismaUid != null);
+
+  String get baseURL => _baseUrl ?? '';
+  OdooSession? get session => _client?.sessionId;
+  bool get isPrismaMode => _isPrismaMode;
 
   /// Inicializa el cliente con la URL del servidor
   void init(String url) {
     _client = OdooClient(url);
     _baseUrl = url;
+
+    // Auto-init WhatsApp Client (Always separate for now, as DBs differ)
+    // We don't await here in init() to avoid blocking UI, but we log heavily.
+    initWhatsAppClient();
+  }
+
+  Future<void> initWhatsAppClient() async {
+    if (_isWhatsAppInitializing) return;
+    if (_whatsAppClient?.sessionId != null) return;
+
+    _isWhatsAppInitializing = true;
+    try {
+      debugPrint("WhatsApp Client: Initializing dual-auth recovery...");
+
+      // 1. Try Admin Login (Production DB first if on Prisma)
+      final String targetDb =
+          (_baseUrl != null &&
+              _baseUrl!.contains("app.prismahexagon.com") &&
+              _prismaDb != null)
+          ? _prismaDb!
+          : _whatsappDb;
+
+      final adminUid = await authenticatePrisma(
+        db: targetDb,
+        user: _whatsappUser,
+        apiKey: _whatsappPassword,
+      );
+
+      if (adminUid != null) {
+        _whatsappUid = adminUid;
+        _whatsAppClient = OdooClient(_whatsappUrl);
+        debugPrint("WhatsApp Client: Admin Login Successful in $targetDb.");
+        try {
+          await _whatsAppClient!.authenticate(
+            targetDb,
+            _whatsappUser,
+            _whatsappPassword,
+          );
+        } catch (_) {}
+      } else {
+        // 2. Fallback to User Session if on Prisma
+        if (_baseUrl != null && _baseUrl!.contains("app.prismahexagon.com")) {
+          debugPrint(
+            "WhatsApp Client: Admin Login Failed. Using current user session.",
+          );
+          _whatsAppClient = _client;
+          _whatsappUid = _isPrismaMode ? _prismaUid : null;
+        }
+      }
+    } catch (e) {
+      debugPrint("WhatsApp Client Auth Error: $e");
+    } finally {
+      _isWhatsAppInitializing = false;
+    }
+  }
+
+  /// Robust JSON-RPC 2.0 Version Check
+  Future<Map<String, dynamic>?> getPrismaVersion() async {
+    final String url = "$_whatsappUrl/jsonrpc";
+    debugPrint("[RPC] GET VERSION -> $url");
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "jsonrpc": "2.0",
+              "method": "call",
+              "params": {"service": "common", "method": "version", "args": []},
+              "id": DateTime.now().millisecondsSinceEpoch,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      debugPrint("[RPC] Status: ${response.statusCode}");
+      debugPrint("[RPC] Raw Response: ${response.body}");
+
+      final decoded = jsonDecode(response.body);
+      if (decoded['error'] != null) {
+        debugPrint("❌ RPC Version Error: ${decoded['error']}");
+        return null;
+      }
+      return decoded['result'] as Map<String, dynamic>?;
+    } catch (e) {
+      debugPrint("❌ RPC Version Connection Error: $e");
+      return null;
+    }
+  }
+
+  /// Robust JSON-RPC 2.0 Authentication for Prisma
+  Future<int?> authenticatePrisma({
+    required String db,
+    required String user,
+    required String apiKey,
+  }) async {
+    final String url = "$_whatsappUrl/jsonrpc";
+    debugPrint("[RPC] AUTHENTICATING -> $url (DB: $db, User: $user)");
+
+    try {
+      final body = {
+        "jsonrpc": "2.0",
+        "method": "call",
+        "params": {
+          "service": "common",
+          "method": "authenticate",
+          "args": [db, user, apiKey, {}],
+        },
+        "id": 1,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      debugPrint("[RPC] Status: ${response.statusCode}");
+      debugPrint("[RPC] Raw Response: ${response.body}");
+
+      final decoded = jsonDecode(response.body);
+
+      if (decoded['error'] != null) {
+        debugPrint("❌ RPC Auth Failed!");
+        debugPrint("Error Details: ${jsonEncode(decoded['error'])}");
+
+        final error = decoded['error'];
+        if (error['data'] != null &&
+            error['data']['message'] != null &&
+            error['data']['message'].contains("database")) {
+          debugPrint(">> CAUSE: Incorrect Database Name");
+        } else if (error['message'] != null &&
+            error['message'].contains("Access Denied")) {
+          debugPrint(">> CAUSE: Invalid Credentials / API Key");
+        }
+        return null;
+      }
+
+      final result = decoded['result'];
+      if (result is int) {
+        debugPrint("✅ RPC Auth Success! UID received: $result");
+        return result;
+      } else if (result == false) {
+        debugPrint("❌ RPC Auth Failed: Server returned 'false' (Invalid Auth)");
+        return null;
+      }
+
+      debugPrint("❓ RPC Unexpected Response: $result");
+      return null;
+    } catch (e) {
+      debugPrint("❌ RPC Auth Connection Error: $e");
+      if (e is SocketException) {
+        debugPrint(">> CAUSE: Network Error / Endpoint Unreachable");
+      } else if (e is FormatException) {
+        debugPrint(">> CAUSE: Invalid Response Format (maybe not /jsonrpc?)");
+      }
+      return null;
+    }
   }
 
   /// Gestiona la autenticación de sesión
   Future<void> authenticate(String db, String user, String password) async {
-    if (_client == null) {
+    if (_baseUrl == null) {
       throw OdooServiceException("Client not initialized. Call init() first.");
     }
+
+    final bool isPrismaServer = _baseUrl!.contains("app.prismahexagon.com");
+
+    if (isPrismaServer) {
+      debugPrint("OdooService: Prisma server detected. Using robust RPC Auth.");
+      try {
+        final uid = await authenticatePrisma(
+          db: db,
+          user: user,
+          apiKey: password,
+        );
+
+        if (uid != null) {
+          _isPrismaMode = true;
+          _prismaUid = uid;
+          _prismaApiKey = password;
+          _prismaDb = db;
+          _client = OdooClient(_baseUrl!); // Set client for base URL storage
+
+          // Fetch and cache Main Partner ID
+          await _cachePartnerId(uid);
+
+          return;
+        } else {
+          throw OdooServiceException(
+            "Crendenciales inválidas para el servidor de producción.",
+          );
+        }
+      } catch (e) {
+        debugPrint("Prisma Auth Error: $e");
+        throw OdooServiceException("Error conectando con el servidor: $e");
+      }
+    }
+
+    // Standard Odoo Auth
+    if (_client == null) {
+      _client = OdooClient(_baseUrl!);
+    }
+
     try {
+      _isPrismaMode = false;
       await _client!.authenticate(db, user, password);
+
+      // Setup WhatsApp client sync
+      if (_baseUrl == _whatsappUrl) {
+        _whatsAppClient = _client;
+      } else if (_whatsAppClient?.sessionId == null) {
+        initWhatsAppClient();
+      }
+
+      // Fetch and cache Main Partner ID
+      final profile = await getUserProfile();
+      if (profile['partner_id'] is List) {
+        _mainPartnerId = profile['partner_id'][0];
+        debugPrint("Logged in as Partner ID: $_mainPartnerId");
+      }
     } on OdooException catch (e) {
-      debugPrint("Authentication error: $e");
-      throw OdooServiceException(
-        "Error de autenticación: Verifica tus credenciales.",
-      );
+      debugPrint("Odoo Auth Error: $e");
+      throw OdooServiceException("Usuario o contraseña incorrectos.");
     } catch (e) {
-      debugPrint("Authentication error (Unknown): $e");
-      throw OdooServiceException(
-        "Error de conexión: No se pudo contactar al servidor.",
+      debugPrint("Standard Auth Error: $e");
+      throw OdooServiceException("No se pudo conectar al servidor.");
+    }
+  }
+
+  /// Helper to cache Partner ID during login
+  Future<void> _cachePartnerId(int uid) async {
+    try {
+      final profile = await callKw(
+        model: 'res.users',
+        method: 'read',
+        args: [
+          [uid],
+        ],
+        kwargs: {
+          'fields': ['partner_id'],
+        },
       );
+      if (profile is List && profile.isNotEmpty) {
+        _mainPartnerId = profile[0]['partner_id'][0];
+        debugPrint("Cached Partner ID: $_mainPartnerId");
+      }
+    } catch (e) {
+      debugPrint("Failed to cache partner_id: $e");
     }
   }
 
   /// Helper para obtener el UID del usuario actual
   int? get currentUserId {
+    if (_isPrismaMode) return _prismaUid;
     return _client?.sessionId?.userId;
   }
 
@@ -148,6 +408,16 @@ class OdooService {
     required List<dynamic> args,
     Map<String, dynamic>? kwargs,
   }) async {
+    // ROUTING: Use Prisma Robust RPC if in Prisma Mode
+    if (_isPrismaMode) {
+      return _callPrismaKw(
+        model: model,
+        method: method,
+        args: args,
+        kwargs: kwargs,
+      );
+    }
+
     if (_client == null) {
       throw OdooServiceException("Client not initialized. Please login first.");
     }
@@ -173,6 +443,72 @@ class OdooService {
         );
       }
       throw OdooServiceException("Error desconocido: $e");
+    }
+  }
+
+  /// Robust JSON-RPC 2.0 Executor for Prisma Model Methods
+  Future<dynamic> _callPrismaKw({
+    required String model,
+    required String method,
+    required List<dynamic> args,
+    Map<String, dynamic>? kwargs,
+  }) async {
+    final String url = "$_baseUrl/jsonrpc";
+    debugPrint("[PRISMA RPC] $model.$method -> $url");
+
+    if (_prismaUid == null || _prismaApiKey == null || _prismaDb == null) {
+      throw OdooServiceException(
+        "Prisma credentials missing. Please re-login.",
+      );
+    }
+
+    try {
+      final body = {
+        "jsonrpc": "2.0",
+        "method": "call",
+        "params": {
+          "service": "object",
+          "method": "execute_kw",
+          "args": [
+            _prismaDb,
+            _prismaUid,
+            _prismaApiKey,
+            model,
+            method,
+            args,
+            kwargs ?? {},
+          ],
+        },
+        "id": 1,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final decoded = jsonDecode(response.body);
+
+      if (decoded['error'] != null) {
+        final errorJson = jsonEncode(decoded['error']);
+        debugPrint("❌ Prisma RPC Error: $errorJson");
+
+        final errorMsg = decoded['error']['message'] ?? 'Error desconocido';
+        final errorData = decoded['error']['data'] ?? {};
+        final faultCode = errorData['faultCode'] ?? '';
+
+        throw OdooServiceException(
+          "Error en Odoo (Prisma): $errorMsg ${faultCode != '' ? '($faultCode)' : ''}",
+        );
+      }
+
+      return decoded['result'];
+    } catch (e) {
+      debugPrint("❌ Prisma RPC Connection Error: $e");
+      throw OdooServiceException("Error conectando con Prisma RPC: $e");
     }
   }
 
@@ -239,44 +575,51 @@ class OdooService {
 
   /// Fetches full details for a single contact
   Future<Map<String, dynamic>> getContactDetail(int id) async {
+    final hasMobile = await _fieldExists(
+      model: 'res.partner',
+      fieldName: 'mobile',
+    );
+
+    final fields = [
+      'id',
+      'name',
+      'email',
+      'phone',
+      'website',
+      'vat',
+      'function',
+      'title',
+      'parent_name',
+      'comment',
+      'street',
+      'street2',
+      'city',
+      'state_id',
+      'zip',
+      'country_id',
+      'is_company',
+      'user_id',
+      'property_payment_term_id',
+      'image_1920',
+    ];
+
+    if (hasMobile) {
+      fields.add('mobile');
+    }
+
     final result = await callKw(
       model: 'res.partner',
       method: 'read',
       args: [
         [id],
       ],
-      kwargs: {
-        'fields': [
-          'id',
-          'name',
-          'email',
-          'phone',
-          'mobile', // Often useful
-          'website',
-          'vat', // Tax ID
-          'function', // Job Position
-          'title', // Title (e.g. Mister)
-          'parent_name', // Company Name text
-          'comment', // Notes
-          // Address
-          'street',
-          'street2',
-          'city',
-          'state_id', // [id, name]
-          'zip',
-          'country_id', // [id, name]
-          // Config
-          'is_company',
-          'user_id', // Salesperson [id, name]
-          'property_payment_term_id', // Payment Terms
-          // Image
-          'image_1920',
-        ],
-      },
+      kwargs: {'fields': fields},
     );
+
     if (result is List && result.isNotEmpty) {
       return result[0] as Map<String, dynamic>;
     }
+
     throw OdooServiceException("Contact not found");
   }
 
@@ -284,6 +627,38 @@ class OdooService {
   // RESTORED: SALES LIST & CRUD
   // Methods restored or updated to support SalesScreen listing
   // ---------------------------------------------------------------------------
+
+  Future<bool> _fieldExists({
+    required String model,
+    required String fieldName,
+    bool useWhatsAppClient = false,
+  }) async {
+    try {
+      final domain = [
+        ['model', '=', model],
+        ['name', '=', fieldName],
+      ];
+
+      final result = useWhatsAppClient
+          ? await _callWhatsAppKw(
+              model: 'ir.model.fields',
+              method: 'search_count',
+              args: [],
+              kwargs: {'domain': domain},
+            )
+          : await callKw(
+              model: 'ir.model.fields',
+              method: 'search_count',
+              args: [],
+              kwargs: {'domain': domain},
+            );
+
+      return result is int && result > 0;
+    } catch (e) {
+      debugPrint("Field check failed for $model.$fieldName: $e");
+    }
+    return false;
+  }
 
   Future<List<Sale>> getSales() async {
     final result = await callKw(
@@ -969,11 +1344,13 @@ class OdooService {
     // FINAL VALIDATION
     // Logic: If RPC failed, we might have empty login/pass.
     // If so, we can't proceed. BUT, if RPC succeeded but just missing provider, we are good.
-    if (sipLogin.isEmpty || sipPassword.isEmpty) {
+    if (sipLogin.isEmpty || sipPassword.isEmpty || sipLogin == "false") {
       // LAST RESORT: Try using Odoo Login (email) as SIP User?
       // Only if we really want to push it.
       // For now, let's fail gracefully if no credentials found.
-      debugPrint("❌ OdooService: Missing credentials after all attempts.");
+      debugPrint(
+        "❌ OdooService: Missing or invalid credentials after all attempts.",
+      );
       return null;
     }
 
@@ -1052,4 +1429,987 @@ class OdooService {
       }
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // FASE 5: WHATSAPP INTEGRATION (DUAL CLIENT ARCHITECTURE)
+  // ---------------------------------------------------------------------------
+
+  /// Helper: Executes RPC calls on the WhatsApp Odoo Instance (Robust RPC)
+  Future<dynamic> _callWhatsAppKw({
+    required String model,
+    required String method,
+    required List<dynamic> args,
+    Map<String, dynamic>? kwargs,
+  }) async {
+    // ROUTING LOGIC for Odoo 19 + WhatsApp:
+    // 1. whatsapp.evolution.api -> MUST use Admin Client (Legacy/Hardcoded)
+    // 2. discuss.channel, mail.message, etc -> SHOULD use User Session (Active Session)
+
+    final bool isEvolutionModel = model == 'whatsapp.evolution.api';
+
+    if (!isEvolutionModel &&
+        _baseUrl != null &&
+        _baseUrl!.contains("app.prismahexagon.com")) {
+      // Use Main Odoo Client (User Session) for transparency and Discuss
+      return await callKw(
+        model: model,
+        method: method,
+        args: args,
+        kwargs: kwargs,
+      );
+    }
+
+    // Default: Use WhatsApp Client (Admin/Legacy)
+    if (_whatsappUid == null) {
+      await initWhatsAppClient();
+      if (_whatsappUid == null) {
+        throw OdooServiceException("WhatsApp Client failed to initialize.");
+      }
+    }
+
+    final String url = "$_whatsappUrl/jsonrpc";
+    debugPrint("[WHATSAPP RPC] $model.$method -> $url (Admin Context)");
+
+    try {
+      // 19/Feb Fix: Dynamically use the production DB if on Prisma
+      final String dbToUse =
+          (_baseUrl != null &&
+              _baseUrl!.contains("app.prismahexagon.com") &&
+              _prismaDb != null)
+          ? _prismaDb!
+          : _whatsappDb;
+
+      final String passToUse =
+          (_whatsAppClient == _client && _prismaApiKey != null)
+          ? _prismaApiKey!
+          : _whatsappPassword;
+
+      final body = {
+        "jsonrpc": "2.0",
+        "method": "call",
+        "params": {
+          "service": "object",
+          "method": "execute_kw",
+          "args": [
+            dbToUse,
+            _whatsappUid!,
+            passToUse,
+            model,
+            method,
+            args,
+            kwargs ?? {},
+          ],
+        },
+        "id": 1,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      final decoded = jsonDecode(response.body);
+
+      if (decoded['error'] != null) {
+        debugPrint("❌ WhatsApp RPC Error: ${jsonEncode(decoded['error'])}");
+        throw OdooServiceException(
+          "Error en Odoo WhatsApp: ${decoded['error']['message'] ?? 'Error desconocido'}",
+        );
+      }
+
+      return decoded['result'];
+    } catch (e) {
+      debugPrint("❌ WhatsApp RPC Connection Error: $e");
+      throw OdooServiceException("Error conectando con WhatsApp RPC: $e");
+    }
+  }
+
+  /// Helper: Finds the Partner ID in the Secondary Odoo using data from Main Odoo
+  Future<int?> _getSecondaryPartnerId(int mainPartnerId) async {
+    // Optimization: If Main Odoo IS Prisma Odoo, they are the same.
+    if (_baseUrl != null && _baseUrl!.contains("app.prismahexagon.com")) {
+      return mainPartnerId;
+    }
+
+    try {
+      // 1. Get Phone Data from Main Odoo (Defensive & Dynamic)
+      String? mobile;
+      String? phone;
+      String name = 'Unknown';
+
+      final hasMobileMain = await _fieldExists(
+        model: 'res.partner',
+        fieldName: 'mobile',
+      );
+
+      final mainFields = <String>['phone', 'name'];
+      if (hasMobileMain) {
+        mainFields.insert(0, 'mobile');
+      }
+
+      try {
+        final mainRes = await callKw(
+          model: 'res.partner',
+          method: 'read',
+          args: [
+            [mainPartnerId],
+          ],
+          kwargs: {'fields': mainFields},
+        );
+        if (mainRes is List && mainRes.isNotEmpty) {
+          final d = mainRes[0];
+          mobile = hasMobileMain && d['mobile'] is String ? d['mobile'] : null;
+          phone = d['phone'] is String ? d['phone'] : null;
+          name = d['name'] is String ? d['name'] : 'Unknown';
+        }
+      } catch (e) {
+        debugPrint("Main Partner Read Error: $e");
+        // Final fallback if even phone/name fail (unlikely but safe)
+        return null;
+      }
+
+      String? searchValue = mobile ?? phone;
+      if (searchValue == null) {
+        debugPrint("WhatsApp Sync: Partner has no phone/mobile number.");
+        return null;
+      }
+
+      // Ensure international format (basic check)
+      if (!searchValue.startsWith('+')) {
+        searchValue = '+$searchValue';
+      }
+
+      // 1. Dynamic Field Check (Robust Multi-Odoo compatibility)
+      String searchField = 'phone';
+      List<String> createFields = ['name', 'phone'];
+
+      try {
+        final fields = await _callWhatsAppKw(
+          model: 'res.partner',
+          method: 'fields_get',
+          args: [],
+          kwargs: {
+            'attributes': ['string'],
+          },
+        );
+
+        if (fields is Map) {
+          if (fields.containsKey('mobile')) {
+            searchField = 'mobile';
+            createFields.add('mobile');
+          }
+        }
+      } catch (e) {
+        debugPrint("Field check warning: $e");
+      }
+
+      // 2. Search in Secondary Odoo
+      // We prioritize mobile if available, otherwise phone.
+      // Or we can search both if user requested robustness across versions.
+      // But user said: "Falls back to using phone if mobile is not available".
+
+      List<dynamic> secondaryRes = [];
+      try {
+        secondaryRes = await _callWhatsAppKw(
+          model: 'res.partner',
+          method: 'search_read',
+          args: [],
+          kwargs: {
+            'domain': [
+              [searchField, '=', searchValue],
+            ],
+            'fields': ['id'],
+            'limit': 1,
+          },
+        );
+      } catch (e) {
+        debugPrint("Secondary Search Error ($searchField): $e");
+        if (searchField == 'mobile') {
+          // Fallback trial on phone just in case logic was flawed
+          try {
+            secondaryRes = await _callWhatsAppKw(
+              model: 'res.partner',
+              method: 'search_read',
+              args: [],
+              kwargs: {
+                'domain': [
+                  ['phone', '=', searchValue],
+                ],
+                'fields': ['id'],
+                'limit': 1,
+              },
+            );
+          } catch (_) {}
+        }
+
+        if (secondaryRes.isEmpty) {
+          // Last resort fallback to name
+          try {
+            secondaryRes = await _callWhatsAppKw(
+              model: 'res.partner',
+              method: 'search_read',
+              args: [],
+              kwargs: {
+                'domain': [
+                  ['name', '=', name],
+                ],
+                'fields': ['id'],
+                'limit': 1,
+              },
+            );
+          } catch (_) {}
+        }
+      }
+
+      if (secondaryRes.isNotEmpty) {
+        debugPrint(
+          "WhatsApp Sync: Found partner in secondary Odoo: ${secondaryRes[0]['id']}",
+        );
+        return secondaryRes[0]['id'];
+      }
+
+      // 3. Create if not found
+      debugPrint(
+        "WhatsApp Sync: Partner not found. Creating copy for $name...",
+      );
+      try {
+        final Map<String, dynamic> vals = {'name': name, 'phone': searchValue};
+        if (createFields.contains('mobile')) {
+          vals['mobile'] = searchValue;
+        }
+
+        final createdId = await _callWhatsAppKw(
+          model: 'res.partner',
+          method: 'create',
+          args: [vals],
+        );
+        return createdId is int ? createdId : null;
+      } catch (e) {
+        debugPrint("Secondary Create Error: $e");
+        // Fallback to minimal create
+        try {
+          final createdId = await _callWhatsAppKw(
+            model: 'res.partner',
+            method: 'create',
+            args: [
+              {'name': name},
+            ],
+          );
+          return createdId is int ? createdId : null;
+        } catch (_) {
+          return null;
+        }
+      }
+    } catch (e) {
+      debugPrint("WhatsApp Partner Sync Error: $e");
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // FASE 5: WHATSAPP INTEGRATION (STANDARD ODOO CHAT)
+  // ---------------------------------------------------------------------------
+
+  /// Helper: Gets or Creates the WhatsApp Channel ID for a partner (Secondary Odoo)
+  Future<int> _getWhatsAppChannelId(int mainPartnerId) async {
+    // Sync Partner First
+    final secondaryPartnerId = await _getSecondaryPartnerId(mainPartnerId);
+    if (secondaryPartnerId == null) {
+      throw OdooServiceException(
+        "No se pudo sincronizar el contacto para WhatsApp.",
+      );
+    }
+
+    // 1. Try to open/create chat via different method names (Odoo 19 compatibility)
+    final methodsToTry = [
+      'open_whatsapp_chat',
+      'channel_get_or_create',
+      'get_whatsapp_channel',
+    ];
+    for (var methodName in methodsToTry) {
+      try {
+        final result = await _callWhatsAppKw(
+          model: 'discuss.channel',
+          method: methodName,
+          args: [],
+          kwargs: methodName == 'channel_get_or_create'
+              ? {
+                  'partners': [secondaryPartnerId],
+                }
+              : {'partner_id': secondaryPartnerId},
+        );
+
+        debugPrint("WhatsApp $methodName Result: $result");
+        if (result is Map<String, dynamic>) {
+          if (result['params'] != null &&
+              result['params']['active_id'] != null) {
+            return result['params']['active_id'] as int;
+          }
+          if (result['res_id'] != null) return result['res_id'] as int;
+          if (result['id'] != null) return result['id'] as int;
+        } else if (result is int) {
+          return result;
+        }
+      } catch (_) {}
+    }
+
+    // Fallback Manual Search with more robust domain
+    final channels = await _callWhatsAppKw(
+      model: 'discuss.channel',
+      method: 'search_read',
+      args: [],
+      kwargs: {
+        'domain': [
+          ['channel_type', '=', 'whatsapp'],
+          '|',
+          [
+            'channel_partner_ids',
+            'in',
+            [secondaryPartnerId],
+          ],
+          [
+            'channel_member_ids.partner_id',
+            'in',
+            [secondaryPartnerId],
+          ],
+        ],
+        'fields': ['id'],
+        'limit': 1,
+      },
+    );
+
+    debugPrint("WhatsApp Manual Search Result: $channels");
+    if (channels is List && channels.isNotEmpty) {
+      return channels[0]['id'] as int;
+    }
+
+    throw OdooServiceException("No se pudo iniciar el chat de WhatsApp.");
+  }
+
+  /// Fetches the message history for a partner via their WhatsApp channel (Secondary Odoo).
+  Future<List<WhatsAppMessage>> fetchWhatsAppMessages(
+    int? mainPartnerId, {
+    int? channelId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final int actualChannelId =
+          channelId ?? await _getWhatsAppChannelId(mainPartnerId!);
+      final secondaryPartnerId = mainPartnerId != null
+          ? await _getSecondaryPartnerId(mainPartnerId)
+          : null;
+
+      final messages = await _callWhatsAppKw(
+        model: 'mail.message',
+        method: 'search_read',
+        args: [],
+        kwargs: {
+          'domain': [
+            ['res_id', '=', actualChannelId],
+            ['model', '=', 'discuss.channel'],
+            ['message_type', '!=', 'notification'], // Hide system notifications
+          ],
+          'fields': [
+            'id',
+            'body',
+            'date',
+            'author_id',
+            'attachment_ids',
+            'message_type',
+          ],
+          'order': 'id desc',
+          'limit': limit,
+          'offset': offset,
+        },
+      );
+
+      if (messages is List) {
+        // 1. Collect Attachment IDs
+        final Set<int> attachmentIds = {};
+        for (var m in messages) {
+          if (m['attachment_ids'] is List &&
+              (m['attachment_ids'] as List).isNotEmpty) {
+            for (var id in (m['attachment_ids'] as List)) {
+              if (id is int) attachmentIds.add(id);
+            }
+          }
+        }
+
+        // 2. Fetch Attachment Metadata (Mimetype, Name, Duration)
+        final Map<int, Map<String, dynamic>> attachmentMap =
+            await _getAttachmentDetails(attachmentIds.toList());
+
+        return messages
+            .map(
+              (m) => _mapOdooMessageToWhatsApp(
+                m,
+                attachmentMap,
+                secondaryPartnerId,
+              ),
+            )
+            .toList()
+            .reversed
+            .toList();
+      }
+    } catch (e) {
+      debugPrint("WhatsApp Fetch Error: $e");
+    }
+    return [];
+  }
+
+  /// Helper to map Odoo mail.message to WhatsAppMessage
+  WhatsAppMessage _mapOdooMessageToWhatsApp(
+    Map<String, dynamic> m,
+    Map<int, Map<String, dynamic>> attachmentMap,
+    int? secondaryPartnerId,
+  ) {
+    final authorId = (m['author_id'] is List && m['author_id'].isNotEmpty)
+        ? m['author_id'][0]
+        : -1;
+
+    final bool isOutgoing = (secondaryPartnerId != null)
+        ? (authorId != secondaryPartnerId)
+        : (authorId == _mainPartnerId);
+
+    String body = m['body'] is String ? m['body'] : '';
+    body = body.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+
+    // Determine Message Type & Attachment
+    MessageType type = MessageType.text;
+    String? attachmentUrl;
+    String? fileName;
+    Duration? duration;
+
+    if (m['attachment_ids'] is List &&
+        (m['attachment_ids'] as List).isNotEmpty) {
+      // We typically only handle the first attachment for now
+      final firstAttId = (m['attachment_ids'] as List)[0] as int;
+      if (attachmentMap.containsKey(firstAttId)) {
+        final att = attachmentMap[firstAttId]!;
+        final mime = (att['mimetype'] as String? ?? '').toLowerCase();
+        fileName = att['name'] as String?;
+        // Construct URL using ID
+        attachmentUrl = "/web/content/$firstAttId";
+
+        // Try to get duration if available (Evolution sync might store it)
+        if (att['duration'] != null && att['duration'] is int) {
+          duration = Duration(seconds: att['duration'] as int);
+        }
+
+        final nameLower = (fileName ?? '').toLowerCase();
+        if (mime.startsWith('audio/')) {
+          type = MessageType.audio;
+        } else if (mime.startsWith('image/') ||
+            nameLower.endsWith('.jpg') ||
+            nameLower.endsWith('.jpeg') ||
+            nameLower.endsWith('.png') ||
+            nameLower.endsWith('.webp')) {
+          if (mime == 'image/webp' || nameLower.endsWith('.webp')) {
+            type = MessageType.sticker;
+          } else {
+            type = MessageType.image;
+          }
+        } else if (mime.startsWith('video/') || nameLower.endsWith('.mp4')) {
+          type = MessageType.video;
+        } else {
+          type = MessageType.file;
+        }
+      }
+    }
+
+    return WhatsAppMessage(
+      id: m['id'] as int,
+      body: body,
+      type: type,
+      state: isOutgoing ? MessageState.sent : MessageState.received,
+      isOutgoing: isOutgoing,
+      timestamp: DateTime.parse(m['date']),
+      attachmentUrl: attachmentUrl,
+      fileName: fileName,
+      duration: duration,
+    );
+  }
+
+  /// Helper to fetch attachment details (mimetype, name) for a list of IDs
+  Future<Map<int, Map<String, dynamic>>> _getAttachmentDetails(
+    List<int> ids,
+  ) async {
+    if (ids.isEmpty) return {};
+    try {
+      final results = await _callWhatsAppKw(
+        model: 'ir.attachment',
+        method: 'read',
+        args: [ids],
+        kwargs: {
+          'fields': ['id', 'name', 'mimetype'],
+        },
+      );
+      final Map<int, Map<String, dynamic>> map = {};
+      if (results is List) {
+        for (var r in results) {
+          if (r['id'] is int) {
+            map[r['id']] = r as Map<String, dynamic>;
+          }
+        }
+      }
+      return map;
+    } catch (e) {
+      debugPrint("Attachment Metadata Fetch Error: $e");
+      return {};
+    }
+  }
+
+  Future<WhatsAppMessage?> sendWhatsAppMessage(
+    int? mainPartnerId,
+    String message, {
+    int? channelId,
+  }) async {
+    try {
+      int? discussMsgId;
+      int? targetPartnerId = mainPartnerId;
+      // String? targetPhone;
+
+      // 1. RESOLVE RECIPIENT & PHONE
+      if (targetPartnerId == null && channelId != null) {
+        // Find recipient from channel members
+        try {
+          final channelInfo = await _callWhatsAppKw(
+            model: 'discuss.channel',
+            method: 'read',
+            args: [
+              [channelId],
+            ],
+            kwargs: {
+              'fields': ['channel_partner_ids'],
+            },
+          );
+          if (channelInfo is List && channelInfo.isNotEmpty) {
+            final partners = channelInfo[0]['channel_partner_ids'] as List;
+            // The recipient is the partner who is NOT us
+            for (var pId in partners) {
+              if (pId != _mainPartnerId) {
+                targetPartnerId = pId;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint("WhatsApp Resolver Error: $e");
+        }
+      }
+
+      /*
+      if (targetPartnerId != null) {
+        final hasMobile = await _fieldExists(
+          model: 'res.partner',
+          fieldName: 'mobile',
+        );
+        final fields = <String>['phone', 'name'];
+        if (hasMobile) fields.insert(0, 'mobile');
+
+        final mainRes = await callKw(
+          model: 'res.partner',
+          method: 'read',
+          args: [
+            [targetPartnerId],
+          ],
+          kwargs: {'fields': fields},
+        );
+
+        if (mainRes is List && mainRes.isNotEmpty) {
+          final d = mainRes[0];
+          final mobile = hasMobile && d['mobile'] is String
+              ? d['mobile']
+              : null;
+          final phone = d['phone'] is String ? d['phone'] : null;
+          targetPhone = mobile ?? phone;
+        }
+      }
+      */
+
+      // 3. STRATEGY 2: Odoo Visibility (Discuss Channel)
+      try {
+        final actualChannelId =
+            channelId ?? await _getWhatsAppChannelId(targetPartnerId!);
+        debugPrint("WhatsApp: Syncing to Discuss channel $actualChannelId...");
+        final res = await _callWhatsAppKw(
+          model: 'discuss.channel',
+          method: 'message_post',
+          args: [actualChannelId],
+          kwargs: {
+            'body': message,
+            'message_type': 'comment',
+            'subtype_xmlid': 'mail.mt_comment',
+          },
+        );
+        if (res is int) {
+          discussMsgId = res;
+          debugPrint("WhatsApp: Sync successful with Discuss ID $discussMsgId");
+        }
+      } catch (e) {
+        debugPrint("WhatsApp Sync Error (Discuss): $e");
+      }
+
+      if (discussMsgId == null) {
+        throw OdooServiceException(
+          "No se pudo enviar el mensaje por WhatsApp ni sincronizarlo con Odoo.",
+        );
+      }
+
+      return WhatsAppMessage(
+        id: discussMsgId ?? DateTime.now().millisecondsSinceEpoch,
+        body: message,
+        type: MessageType.text,
+        state: MessageState.sent,
+        isOutgoing: true,
+        timestamp: DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint("WhatsApp Global Send Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<WhatsAppMessage?> sendWhatsAppFile(
+    int? mainPartnerId,
+    String filePath, {
+    int? channelId,
+  }) async {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) return null;
+
+      final bytes = await file.readAsBytes();
+      final base64Data = base64Encode(bytes);
+      final fileName = filePath.split('/').last;
+
+      // Determine mimetype (basic)
+      String mimetype = 'application/octet-stream';
+      if (fileName.toLowerCase().endsWith('.pdf')) {
+        mimetype = 'application/pdf';
+      } else if (fileName.toLowerCase().endsWith('.png')) {
+        mimetype = 'image/png';
+      } else if (fileName.toLowerCase().endsWith('.jpg') ||
+          fileName.toLowerCase().endsWith('.jpeg')) {
+        mimetype = 'image/jpeg';
+      } else if (fileName.toLowerCase().endsWith('.mp4')) {
+        mimetype = 'video/mp4';
+      } else if (fileName.toLowerCase().endsWith('.webp')) {
+        mimetype = 'image/webp';
+      }
+
+      int? discussMsgId;
+
+      // 1. Sync to Discuss (Visibility)
+      try {
+        final actualChannelId =
+            channelId ?? await _getWhatsAppChannelId(mainPartnerId!);
+
+        // Create Attachment
+        final attachmentId = await _callWhatsAppKw(
+          model: 'ir.attachment',
+          method: 'create',
+          args: [
+            {
+              'name': fileName,
+              'type': 'binary',
+              'datas': base64Data,
+              'res_model': 'discuss.channel',
+              'res_id': actualChannelId,
+              'mimetype': mimetype,
+            },
+          ],
+        );
+
+        // Post Message with Attachment
+        final msgId = await _callWhatsAppKw(
+          model: 'discuss.channel',
+          method: 'message_post',
+          args: [actualChannelId],
+          kwargs: {
+            'body': '',
+            'attachment_ids': [attachmentId],
+            'message_type': 'comment',
+            'subtype_xmlid':
+                'mail.mt_comment', // Important for triggering Odoo's listeners
+          },
+        );
+        if (msgId is int) discussMsgId = msgId;
+      } catch (e) {
+        debugPrint("WhatsApp File Sync Error: $e");
+      }
+
+      // Determine local Type
+      MessageType type = MessageType.file;
+      if (mimetype.startsWith('image/')) {
+        type = (mimetype == 'image/webp')
+            ? MessageType.sticker
+            : MessageType.image;
+      } else if (mimetype.startsWith('video/')) {
+        type = MessageType.video;
+      }
+
+      return WhatsAppMessage(
+        id: discussMsgId ?? DateTime.now().millisecondsSinceEpoch,
+        body: fileName, // Show filename as body for now
+        type: type,
+        state: MessageState.sent,
+        isOutgoing: true,
+        timestamp: DateTime.now(),
+        attachmentUrl: filePath, // Local path for immediate display
+        fileName: fileName,
+      );
+    } catch (e) {
+      debugPrint("WhatsApp Global File Error: $e");
+      return null;
+    }
+  }
+
+  Future<WhatsAppMessage?> sendWhatsAppAudio(
+    int? mainPartnerId,
+    String filePath, {
+    int? channelId,
+  }) async {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) return null;
+
+      final bytes = await file.readAsBytes();
+      final base64Data = base64Encode(bytes);
+      final fileName = filePath.split('/').last;
+
+      int? discussMsgId;
+
+      // 1. Sync to Discuss (Visibility)
+      try {
+        final actualChannelId =
+            channelId ?? await _getWhatsAppChannelId(mainPartnerId!);
+        final attachmentId = await _callWhatsAppKw(
+          model: 'ir.attachment',
+          method: 'create',
+          args: [
+            {
+              'name': fileName,
+              'type': 'binary',
+              'datas': base64Data,
+              'res_model': 'discuss.channel',
+              'res_id': actualChannelId,
+              'mimetype': fileName.toLowerCase().endsWith('.m4a')
+                  ? 'audio/mp4'
+                  : (fileName.toLowerCase().endsWith('.wav')
+                        ? 'audio/wav'
+                        : 'audio/mpeg'),
+            },
+          ],
+        );
+
+        final msgId = await _callWhatsAppKw(
+          model: 'discuss.channel',
+          method: 'message_post',
+          args: [actualChannelId],
+          kwargs: {
+            'body': '',
+            'attachment_ids': [attachmentId],
+            'message_type': 'comment',
+            'subtype_xmlid': 'mail.mt_comment',
+          },
+        );
+        if (msgId is int) discussMsgId = msgId;
+
+        // Future: Add Evolution API support for sending audio files if needed
+      } catch (e) {
+        debugPrint("WhatsApp Audio Sync Error: $e");
+      }
+
+      return WhatsAppMessage(
+        id: discussMsgId ?? DateTime.now().millisecondsSinceEpoch,
+        body: "",
+        type: MessageType.audio,
+        state: MessageState.sent,
+        isOutgoing: true,
+        timestamp: DateTime.now(),
+        attachmentUrl: filePath, // Local Path strictly needed for playback!
+        fileName: fileName,
+      );
+    } catch (e) {
+      debugPrint("WhatsApp Global Audio Error: $e");
+      return null;
+    }
+  }
+
+  /// Downloads media from Odoo using authenticated session
+  /// Downloads media from Odoo using authenticated session
+  Future<String?> downloadMedia(String url) async {
+    // Determine which client/session to use.
+    final client = _whatsAppClient ?? _client;
+    if (client == null || client.sessionId == null) {
+      debugPrint("DownloadMedia: No active session.");
+      return null;
+    }
+
+    try {
+      String cleanUrl = url;
+      if (!url.startsWith('http')) {
+        final baseUrl = client.baseURL.endsWith('/')
+            ? client.baseURL.substring(0, client.baseURL.length - 1)
+            : client.baseURL;
+        cleanUrl = url.startsWith('/') ? url : '/$url';
+        cleanUrl = "$baseUrl$cleanUrl";
+      }
+
+      // Check Cache First
+      final directory = await getApplicationDocumentsDirectory();
+      String filename = cleanUrl.split('/').last;
+      if (!filename.contains('.') || filename.length > 50) {
+        // Create a hash or unique name based on URL if filename is bad
+        filename = "media_${cleanUrl.hashCode}.jpg";
+      }
+      filename = filename.split('?').first;
+      final localPath = '${directory.path}/$filename';
+      final file = File(localPath);
+
+      if (await file.exists()) {
+        debugPrint("📦 Media found in cache: $localPath");
+        return localPath;
+      }
+
+      debugPrint("⬇️ Downloading media: $cleanUrl");
+
+      final response = await http.get(
+        Uri.parse(cleanUrl),
+        headers: {'Cookie': 'session_id=${client.sessionId!.id}'},
+      );
+
+      if (response.statusCode == 200) {
+        await file.writeAsBytes(response.bodyBytes);
+        debugPrint("✅ Media saved to: $localPath");
+        return localPath;
+      } else {
+        debugPrint(
+          "❌ Download failed: ${response.statusCode} - ${response.body.substring(0, _min(100, response.body.length))}",
+        );
+        return null;
+      }
+    } catch (e) {
+      debugPrint("❌ Download Exception: $e");
+      return null;
+    }
+  }
+
+  int _min(int a, int b) => a < b ? a : b;
+
+  Future<List<WhatsAppMessage>> pollWhatsAppMessages(
+    int? mainPartnerId,
+    int lastMessageId, {
+    int? channelId,
+  }) async {
+    // Poll checks for messages with ID > lastMessageId in the channel
+    try {
+      final int actualChannelId =
+          channelId ?? await _getWhatsAppChannelId(mainPartnerId!);
+
+      // We need to know who the "other" person is to determine direction
+      final secondaryPartnerId = mainPartnerId != null
+          ? await _getSecondaryPartnerId(mainPartnerId)
+          : null;
+
+      final messages = await _callWhatsAppKw(
+        model: 'mail.message',
+        method: 'search_read',
+        args: [],
+        kwargs: {
+          'domain': [
+            ['res_id', '=', actualChannelId],
+            ['model', '=', 'discuss.channel'],
+            ['id', '>', lastMessageId],
+            ['message_type', '!=', 'notification'],
+          ],
+          'fields': [
+            'id',
+            'body',
+            'date',
+            'author_id',
+            'attachment_ids',
+            'message_type',
+          ],
+          'order': 'id asc', // Use ID order for polling consistency
+        },
+      );
+
+      if (messages is List && messages.isNotEmpty) {
+        // Collect Attachment IDs
+        final Set<int> attachmentIds = {};
+        for (var m in messages) {
+          if (m['attachment_ids'] is List &&
+              (m['attachment_ids'] as List).isNotEmpty) {
+            for (var id in (m['attachment_ids'] as List)) {
+              if (id is int) attachmentIds.add(id);
+            }
+          }
+        }
+
+        // Fetch Attachment Metadata
+        final Map<int, Map<String, dynamic>> attachmentMap =
+            await _getAttachmentDetails(attachmentIds.toList());
+
+        return messages
+            .map(
+              (m) => _mapOdooMessageToWhatsApp(
+                m,
+                attachmentMap,
+                secondaryPartnerId,
+              ),
+            )
+            .toList();
+      }
+    } catch (e) {
+      debugPrint("Poll Error: $e");
+    }
+    return [];
+  }
+
+  /// Fetches all active Discuss channels where the user is a member.
+  Future<List<Map<String, dynamic>>> fetchDiscussChannels() async {
+    try {
+      if (_mainPartnerId == null) return [];
+
+      final channels = await _callWhatsAppKw(
+        model: 'discuss.channel',
+        method: 'search_read',
+        args: [],
+        kwargs: {
+          'domain': [
+            [
+              'channel_type',
+              'in',
+              ['whatsapp', 'chat', 'group'],
+            ],
+          ],
+          'fields': [
+            'id',
+            'name',
+            'channel_type',
+            'description',
+            'display_name',
+            'message_needaction_counter',
+            'channel_partner_ids',
+          ],
+          'order': 'id desc',
+        },
+      );
+
+      if (channels is List) {
+        return channels.cast<Map<String, dynamic>>();
+      }
+    } catch (e) {
+      debugPrint("Discuss Channel Fetch Error: $e");
+    }
+    return [];
+  }
+
+  int? get currentPartnerId => _mainPartnerId;
 }

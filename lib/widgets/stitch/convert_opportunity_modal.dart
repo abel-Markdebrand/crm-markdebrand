@@ -387,7 +387,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    shadowColor: kPrimaryColor.withOpacity(0.2),
+                    shadowColor: kPrimaryColor.withValues(alpha: 0.2),
                     elevation: 4,
                   ),
                   child: _isLoading
@@ -502,7 +502,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 4),
                   ),
@@ -569,7 +569,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
           height: 48,
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF0d59f2).withOpacity(0.05)
+                ? const Color(0xFF0d59f2).withValues(alpha: 0.05)
                 : Colors.white,
             border: Border.all(
               color: isSelected

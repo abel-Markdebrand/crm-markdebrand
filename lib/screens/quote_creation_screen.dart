@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:mvp_odoo/utils/odoo_utils.dart';
 import '../services/quote_service.dart';
 import '../services/odoo_service.dart'; // Direct access for fetching fetchables
 import '../config/api_endpoints.dart';
@@ -30,9 +31,9 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
 
   // Header Extra
   final _invoiceAddressController =
-      TextEditingController(); // Dirección de factura
+      TextEditingController(); // DirecciÃ³n de factura
   final _deliveryAddressController =
-      TextEditingController(); // Dirección de entrega
+      TextEditingController(); // DirecciÃ³n de entrega
   final _recurringPlanController =
       TextEditingController(); // Plan recurrente (Manual text for now)
 
@@ -45,8 +46,8 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
   final _onlinePaymentController = TextEditingController(); // Pago online
   final _clientRefController =
       TextEditingController(); // Referencia del cliente
-  final _fiscalPositionController = TextEditingController(); // Posición fiscal
-  final _paymentMethodController = TextEditingController(); // Método de pago
+  final _fiscalPositionController = TextEditingController(); // PosiciÃ³n fiscal
+  final _paymentMethodController = TextEditingController(); // MÃ©todo de pago
   final _projectController = TextEditingController(); // Proyecto
 
   // Tab: Other Info - Delivery
@@ -56,19 +57,19 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
   final _sourceDocumentController =
       TextEditingController(); // Documento de fuente
   final _opportunityController = TextEditingController(); // Oportunidad
-  final _campaignController = TextEditingController(); // Campaña
+  final _campaignController = TextEditingController(); // CampaÃ±a
   final _mediumController = TextEditingController(); // Medio
   final _sourceController = TextEditingController(); // Fuente
   final _nicheController = TextEditingController(); // Niche (Sync from CRM)
-
-  // Tab: Notes
-  final _termsController = TextEditingController(); // Términos y condiciones
 
   // Lists for Dropdowns
   List<dynamic> _pricelists = [];
   List<dynamic> _paymentTerms = [];
   List<dynamic> _products = []; // Real products
   List<dynamic> _customers = []; // For generic creation
+
+  // Tab: Notes
+  final _termsController = TextEditingController(); // TÃ©rminos y condiciones
 
   // Selections (ID)
   int? _selectedPricelistId;
@@ -110,7 +111,6 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     _mediumController.dispose();
     _sourceController.dispose();
     _nicheController.dispose();
-    _termsController.dispose();
     super.dispose();
   }
 
@@ -184,6 +184,22 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
         if (mounted) setState(() => _customers = custResult as List);
       } catch (e) {
         debugPrint("Error fetching customers: $e");
+      }
+    } else {
+      // If partnerId is passed, we might need to fetch THAT specific partner to show in dropdown
+      // or just trust it's there. For now, let's assume we don't need to fetch list if we have one?
+      // Actually, the dropdown needs the list. So we should fetch list AND ensure our partner is in it.
+      // OR we just fetch the single partner and add to list.
+      try {
+        final p = await _odooService.getContactDetail(widget.partnerId!);
+        if (mounted) {
+          setState(() {
+            _customers = [p]; // Initialize list with this partner
+            _selectedPartnerId = widget.partnerId;
+          });
+        }
+      } catch (e) {
+        debugPrint("Error fetching initial partner: $e");
       }
     }
 
@@ -540,22 +556,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: _handleSaveDraft,
-              child: const Text(
-                "Save",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            TextButton(
-              onPressed: _handleSendToCustomer,
-              child: const Text(
-                "Send",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+          actions: [],
           bottom: const TabBar(
             labelColor: Colors.black,
             unselectedLabelColor: Color(0xFF64748B),
@@ -563,25 +564,25 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
             tabs: [
               Tab(text: "Order Lines"),
               Tab(text: "Other Info"),
-              Tab(text: "Notes"),
             ],
           ),
         ),
-        body: SafeArea(
-          child: TabBarView(
-            children: [
-              // TAB 1: Order Lines
-              _buildOrderLinesTab(),
+        body: Column(
+          children: [
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // TAB 1: Order Lines
+                  _buildOrderLinesTab(),
 
-              // TAB 2: Other Info
-              _buildOtherInfoTab(),
-
-              // TAB 3: Notes
-              _buildNotesTab(),
-            ],
-          ),
+                  // TAB 2: Other Info
+                  _buildOtherInfoTab(),
+                ],
+              ),
+            ),
+            _buildFooter(),
+          ],
         ),
-        bottomSheet: _buildFooter(),
       ),
     );
   }
@@ -720,35 +721,6 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
           _buildTextField("Niches", _nicheController),
 
           const SizedBox(height: 80),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Header Removed per user request
-          Container(
-            height: 300,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: TextField(
-              controller: _termsController,
-              maxLines: null,
-              expands: true,
-              decoration: const InputDecoration(
-                hintText: "Terms and conditions...",
-                border: InputBorder.none,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -930,28 +902,35 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: ListView.builder(
-                  itemCount: _products.length,
-                  itemBuilder: (context, index) {
-                    final product = _products[index];
-                    return ListTile(
-                      title: Text(product['name']),
-                      subtitle: Text("\$${product['list_price']}"),
-                      onTap: () {
-                        setState(() {
-                          _lines.add({
-                            'product_id': product['id'],
-                            'name': product['name'],
-                            // 'detail': 'Added via Selector', // Optional: We strip this anyway, but useful for UI?
-                            'price_unit': product['list_price'],
-                            'product_uom_qty': 1.0,
-                          });
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
+                child: _products.isEmpty
+                    ? const Center(child: Text("No products found"))
+                    : ListView.builder(
+                        itemCount: _products.length,
+                        itemBuilder: (context, index) {
+                          final product = _products[index];
+                          final name = OdooUtils.safeString(product['name']);
+                          final price =
+                              (product['list_price'] as num?)?.toDouble() ??
+                              0.0;
+
+                          return ListTile(
+                            title: Text(name),
+                            subtitle: Text("\$${price.toStringAsFixed(2)}"),
+                            onTap: () {
+                              setState(() {
+                                _lines.add({
+                                  'product_id': product['id'],
+                                  'name': name,
+                                  'price_unit': price,
+                                  'product_uom_qty': 1.0,
+                                  'price_total': price * 1.0, // Initial total
+                                });
+                              });
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -961,91 +940,98 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
   }
 
   Widget _buildCustomerSelector() {
-    if (widget.partnerId == null && _selectedPartnerId == null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Select Customer",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          DropdownButton<int>(
-            isExpanded: true,
-            hint: const Text("Choose a client..."),
-            value: _selectedPartnerId,
-            items: _customers.map<DropdownMenuItem<int>>((c) {
-              return DropdownMenuItem(value: c['id'], child: Text(c['name']));
-            }).toList(),
-            onChanged: (val) {
-              setState(() => _selectedPartnerId = val);
-            },
-          ),
-        ],
+    // If a partner is already selected (either passed in widget or selected via dropdown), show it
+    final currentPartnerId = _selectedPartnerId ?? widget.partnerId;
+
+    if (currentPartnerId != null) {
+      // Find name if possible
+      final p = _customers.firstWhere(
+        (c) => c['id'] == currentPartnerId,
+        orElse: () => {'name': 'Customer #$currentPartnerId'},
+      );
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.person, color: Color(0xFF64748B)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Customer",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                  Text(
+                    p['name'],
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Optional: Allow changing customer?
+            IconButton(
+              icon: const Icon(Icons.edit, size: 16, color: Color(0xFF007AFF)),
+              onPressed: () {
+                setState(() {
+                  _selectedPartnerId = null;
+                  // If widget.partnerId was set, we can't really "unset" it easily without
+                  // parent state change, but for local state we can try.
+                  // However, if widget.partnerId is final, we might be stuck.
+                  // For now, let's assume we can only change if it wasn't forced by parent?
+                  // Or just hide this button if widget.partnerId != null.
+                });
+              },
+            ),
+          ],
+        ),
       );
     }
 
-    // Logic to switch between Widget name/id or Selected ID
-    final pName = widget.partnerName.isNotEmpty
-        ? widget.partnerName
-        : (_customers.firstWhere(
-            (c) => c['id'] == _selectedPartnerId,
-            orElse: () => {'name': 'Selected'},
-          )['name']);
-
+    // Default Dropdown
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.account_circle,
-                    color: Color(0xFF0D59F2),
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      pName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        const Text(
+          "Select Customer",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          // Added Container for styling
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              isExpanded: true,
+              hint: const Text("Choose a client..."),
+              value: _selectedPartnerId,
+              items: _customers.map<DropdownMenuItem<int>>((c) {
+                return DropdownMenuItem(value: c['id'], child: Text(c['name']));
+              }).toList(),
+              onChanged: (val) {
+                setState(() => _selectedPartnerId = val);
+              },
             ),
-            // Chip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                "ACTIVE",
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2563EB),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );

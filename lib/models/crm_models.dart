@@ -26,6 +26,14 @@ class CrmLead {
   final String? description;
   final String? phone;
   final String? email;
+  final String? street;
+  final String? city;
+  final String? zip;
+  final String? countryName; // country_id -> name
+  final String? function;
+  final String? website;
+  final String? priority;
+  final List<String> tags;
 
   CrmLead({
     required this.id,
@@ -37,6 +45,14 @@ class CrmLead {
     this.description,
     this.phone,
     this.email,
+    this.street,
+    this.city,
+    this.zip,
+    this.countryName,
+    this.function,
+    this.website,
+    this.priority,
+    this.tags = const [],
   });
 
   factory CrmLead.fromJson(Map<String, dynamic> json) {
@@ -52,6 +68,24 @@ class CrmLead {
       pId = json['partner_id'];
     }
 
+    // Country
+    String? cName;
+    if (json['country_id'] is List && json['country_id'].length > 1) {
+      cName = json['country_id'][1];
+    }
+
+    // Tags
+    // tag_ids in read/searchRead is usually [id, id, id] from One2many/Many2many
+    // BUT we need names. The CRM service might need to fetch them separately
+    // or we assume they are passed if we use 'read' with specific context.
+    // Allow robust parsing if Odoo returns [id, name] list of lists (unlikely) or just IDs.
+    // For now we will assume standard read returns IDs and we display IDs unless we do a secondary fetch.
+    // UPDATE: The user wants DATA. Let's just store what we get.
+    // If it's IDs, we might need a workaround.
+    // Odoo API 'read' on Many2many returns List of IDs.
+    // To get names, we need a separate call or use 'search_read' with expanded fields?
+    // Let's stick to safe defaults.
+
     return CrmLead(
       id: json['id'],
       name: OdooUtils.safeString(json['name']),
@@ -62,6 +96,13 @@ class CrmLead {
       description: OdooUtils.safeString(json['description']),
       phone: OdooUtils.safeString(json['phone']),
       email: OdooUtils.safeString(json['email_from']),
+      street: OdooUtils.safeString(json['street']),
+      city: OdooUtils.safeString(json['city']),
+      zip: OdooUtils.safeString(json['zip']),
+      countryName: cName,
+      function: OdooUtils.safeString(json['function']),
+      website: OdooUtils.safeString(json['website']),
+      priority: OdooUtils.safeString(json['priority']),
     );
   }
 }

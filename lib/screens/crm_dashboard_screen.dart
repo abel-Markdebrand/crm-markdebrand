@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:mvp_odoo/screens/products_screen.dart';
+import 'package:mvp_odoo/screens/whatsapp_list_screen.dart';
+import 'package:mvp_odoo/services/notification_service.dart';
 import 'package:mvp_odoo/contacts_screen.dart';
 import 'package:mvp_odoo/sales_screen.dart';
-import 'package:mvp_odoo/screens/quote_creation_screen.dart';
-import 'package:mvp_odoo/screens/leads_creation_screen.dart';
-import 'package:mvp_odoo/screens/contact_form_screen.dart'; // Correctly placed import
 
-import '../../services/crm_service.dart';
-import '../../services/odoo_service.dart';
-import '../../models/crm_models.dart';
-import '../../widgets/stitch/opportunity_card_stitch.dart';
-import '../../widgets/stitch/dashboard_header.dart';
-import '../../widgets/stitch/bottom_nav.dart';
-import '../../screens/profile_screen.dart';
-import 'reports_screen.dart';
-import 'dialpad_screen.dart';
+import 'package:mvp_odoo/screens/leads_creation_screen.dart';
+import 'package:mvp_odoo/screens/contact_form_screen.dart';
+import 'package:mvp_odoo/screens/opportunity_detail_screen.dart';
+
+import 'package:mvp_odoo/services/crm_service.dart';
+import 'package:mvp_odoo/services/odoo_service.dart';
+import 'package:mvp_odoo/models/crm_models.dart';
+import 'package:mvp_odoo/widgets/stitch/opportunity_card_stitch.dart';
+import 'package:mvp_odoo/widgets/stitch/dashboard_header.dart';
+import 'package:mvp_odoo/widgets/stitch/bottom_nav.dart';
+import 'package:mvp_odoo/screens/profile_screen.dart';
+import 'package:mvp_odoo/screens/dialpad_screen.dart';
+import 'package:mvp_odoo/screens/reports_screen.dart';
 
 class CrmDashboardScreen extends StatefulWidget {
   const CrmDashboardScreen({super.key});
@@ -28,6 +31,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
   List<CrmStage> _stages = [];
   Map<int, int> _stageCounts = {};
   int _selectedStageId = -1;
+  String _searchQuery = "";
   bool _isLoading = true;
 
   // Navigation State
@@ -157,7 +161,14 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                   heroTag: "whatsapp",
                   mini: true,
                   backgroundColor: const Color(0xFF25D366),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WhatsAppListScreen(),
+                      ),
+                    );
+                  },
                   child: const Icon(Icons.chat),
                 ),
                 const SizedBox(height: 12),
@@ -241,6 +252,55 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                 ],
               ),
               const Spacer(),
+              // Notification Badge
+              Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.notifications_none_outlined,
+                      color: Color(0xFF64748B),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const WhatsAppListScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: NotificationService.instance.unreadCount,
+                    builder: (context, count, child) {
+                      if (count == 0) return const SizedBox.shrink();
+                      return Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 14,
+                            minHeight: 14,
+                          ),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
               PopupMenuButton<String>(
                 offset: const Offset(0, 50),
                 shape: RoundedRectangleBorder(
@@ -332,6 +392,48 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
             stageCounts: _stageCounts,
           ),
 
+        const SizedBox(height: 12),
+
+        // SEARCH BAR
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: "Search opportunities...",
+                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Color(0xFF94A3B8),
+                  size: 20,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+        ),
+
         const SizedBox(height: 16),
 
         // Sub-header (Filters)
@@ -377,6 +479,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
               ? const SizedBox()
               : OpportunityList(
                   stageId: _selectedStageId,
+                  searchQuery: _searchQuery,
                   stages: _stages,
                   onStageChanged: _onStageSelected,
                   onPipelineChanged: _refreshCounts,
@@ -389,6 +492,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
 
 class OpportunityList extends StatefulWidget {
   final int stageId;
+  final String searchQuery;
   final List<CrmStage> stages;
   final Function(int) onStageChanged;
   final VoidCallback? onPipelineChanged;
@@ -396,6 +500,7 @@ class OpportunityList extends StatefulWidget {
   const OpportunityList({
     super.key,
     required this.stageId,
+    required this.searchQuery,
     required this.stages,
     required this.onStageChanged,
     this.onPipelineChanged,
@@ -417,14 +522,18 @@ class _OpportunityListState extends State<OpportunityList> {
   @override
   void didUpdateWidget(covariant OpportunityList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.stageId != widget.stageId) {
+    if (oldWidget.stageId != widget.stageId ||
+        oldWidget.searchQuery != widget.searchQuery) {
       _loadLeads();
     }
   }
 
   void _loadLeads() {
     setState(() {
-      _leadsFuture = CrmService().getPipeline(widget.stageId);
+      _leadsFuture = CrmService().getPipeline(
+        widget.stageId,
+        searchQuery: widget.searchQuery,
+      );
     });
   }
 
@@ -466,7 +575,7 @@ class _OpportunityListState extends State<OpportunityList> {
                       leading: CircleAvatar(
                         backgroundColor: _getStageColor(
                           stage.id,
-                        ).withOpacity(0.2),
+                        ).withValues(alpha: 0.2),
                         child: Icon(
                           Icons.arrow_forward,
                           color: _getStageColor(stage.id),
@@ -546,16 +655,15 @@ class _OpportunityListState extends State<OpportunityList> {
               expectedRevenue: lead.expectedRevenue,
               stageName: "Stage ${widget.stageId}",
               stageColor: _getStageColor(widget.stageId),
+              partnerId: lead.partnerId,
+              phone: lead.phone,
               onLongPress: () => _showMoveStageModal(context, lead),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => QuoteCreationScreen(
-                      partnerName: lead.partnerName ?? 'Unknown Client',
-                      partnerId: lead.partnerId,
-                      opportunityId: lead.id,
-                    ),
+                    builder: (context) =>
+                        OpportunityDetailScreen(leadId: lead.id),
                   ),
                 );
               },

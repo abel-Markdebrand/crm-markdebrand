@@ -45,5 +45,23 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Esta aplicación requiere acceso al micrófono para grabar y enviar mensajes de voz por WhatsApp.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Esta aplicación requiere acceso a la cámara para tomar fotos de perfil y enviar imágenes por WhatsApp.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Esta aplicación requiere acceso a la galería para subir fotos de contactos y enviar archivos por WhatsApp.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../screens/whatsapp_chat_screen.dart';
 
 class OpportunityCardStitch extends StatelessWidget {
   final String partnerName;
@@ -6,6 +7,8 @@ class OpportunityCardStitch extends StatelessWidget {
   final String opportunityName;
   final double expectedRevenue;
   final Color stageColor;
+  final int? partnerId;
+  final String? phone;
   final String stageName;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -18,6 +21,8 @@ class OpportunityCardStitch extends StatelessWidget {
     required this.expectedRevenue,
     this.stageColor = Colors.blue,
     required this.stageName,
+    this.partnerId,
+    this.phone,
     this.onTap,
     this.onLongPress,
   });
@@ -34,7 +39,7 @@ class OpportunityCardStitch extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -168,22 +173,45 @@ class OpportunityCardStitch extends StatelessWidget {
                         ],
                       ),
 
-                      ElevatedButton(
-                        onPressed: onTap, // Bind external action to this button
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D59F2),
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 36),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chat, color: Colors.green),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => WhatsAppChatScreen(
+                                    partnerId: partnerId,
+                                    partnerName: partnerName,
+                                    partnerPhone: phone,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          textStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed:
+                                onTap, // Bind external action to this button
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0D59F2),
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 36),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            child: const Text("Create Quote"),
                           ),
-                        ),
-                        child: const Text("Create Quote"),
+                        ],
                       ),
                     ],
                   ),

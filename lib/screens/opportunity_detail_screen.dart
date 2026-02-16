@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:mvp_odoo/services/crm_service.dart';
 import '../models/crm_models.dart';
-import '../services/crm_service.dart';
-import '../services/product_service.dart';
-import '../sales_form_screen.dart';
-import 'package:mvp_odoo/screens/lead_form_screen.dart';
-import '../widgets/product_search_dialog.dart';
+import 'package:mvp_odoo/screens/leads_creation_screen.dart';
+import 'package:mvp_odoo/screens/quote_creation_screen.dart';
 
 class OpportunityDetailScreen extends StatefulWidget {
   final int leadId;
@@ -18,14 +16,8 @@ class OpportunityDetailScreen extends StatefulWidget {
 
 class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
   final CrmService _crmService = CrmService();
-  final ProductService _productService = ProductService();
 
   late Future<CrmLead?> _leadFuture;
-  bool _isProcessing = false;
-
-  // HOT SALE STATE
-  List<Map<String, dynamic>> _selectedProducts = [];
-
   @override
   void initState() {
     super.initState();
@@ -38,99 +30,11 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
     });
   }
 
-  // --- Start Hot Sale (Instant Sale) ---
-  Future<void> _startHotSale(CrmLead lead) async {
-    if (lead.partnerId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Este lead no tiene cliente asignado.')),
-      );
-      return;
-    }
-
-    // Validar productos
-    if (_selectedProducts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seleccione al menos un producto.')),
-      );
-      return;
-    }
-
-    setState(() => _isProcessing = true);
-    try {
-      // 1. Crear Pedido (Draft)
-      final orderId = await _crmService.createSaleOrder(
-        partnerId: lead.partnerId!,
-        opportunityId: lead.id,
-      );
-
-      // 2. Agregar Líneas seleccionadas
-      for (var prod in _selectedProducts) {
-        await _crmService.addOrderLine(
-          orderId,
-          prod['id'],
-          (prod['qty'] as num).toDouble(),
-        );
-      }
-
-      if (!mounted) return;
-
-      // 3. Navegar a Confirmación (SalesFormScreen)
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SalesFormScreen(orderId: orderId),
-        ),
-      );
-
-      // Limpiar selección al volver? (Opcional)
-      // setState(() => _selectedProducts.clear());
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error al crear venta: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  void _addProduct() async {
-    final selected = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) =>
-          ProductSearchDialog(productService: _productService),
-    );
-
-    if (selected != null) {
-      // Pedir cantidad (Simple dialog)
-      final qtyStr = await showDialog<String>(
-        context: context,
-        builder: (ctx) => _QtyDialog(),
-      );
-
-      if (qtyStr != null) {
-        final qty = double.tryParse(qtyStr) ?? 1.0;
-        setState(() {
-          final p = Map<String, dynamic>.from(selected);
-          p['qty'] = qty;
-          _selectedProducts.add(p);
-        });
-      }
-    }
-  }
-
-  void _removeProduct(int index) {
-    setState(() {
-      _selectedProducts.removeAt(index);
-    });
-  }
-
   // Navigation to Edit
   void _editLead(CrmLead lead) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => LeadFormScreen(lead: lead)),
+      MaterialPageRoute(builder: (context) => LeadCreationScreen(lead: lead)),
     );
     if (result == true) {
       _loadLead(); // Refresh data
@@ -147,9 +51,15 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
             future: _leadFuture,
             builder: (context, snapshot) {
               if (snapshot.hasData) {
-                return IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _editLead(snapshot.data!),
+                final lead = snapshot.data!;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _editLead(lead),
+                    ),
+                  ],
                 );
               }
               return const SizedBox();
@@ -169,131 +79,334 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
           }
 
           final lead = snapshot.data!;
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Text(
-                  lead.name,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                Text(
-                  lead.partnerName ?? 'Sin Cliente',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Divider(),
-
-                // Lead Info
-                _buildInfoRow(
-                  Icons.monetization_on,
-                  "Ingreso Esperado",
-                  "\$${lead.expectedRevenue.toStringAsFixed(2)}",
-                ),
-                const SizedBox(height: 8),
-                _buildInfoRow(
-                  Icons.message,
-                  "Descripción",
-                  lead.description ?? "Sin descripción",
-                ),
-
-                const Divider(height: 32),
-
-                // --- SECCIÓN PRODUCTOS (HOT SALE CART) ---
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Productos a Facturar",
-                      style: Theme.of(context).textTheme.titleMedium,
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- HEADER CARD ---
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    TextButton.icon(
-                      onPressed: _addProduct,
-                      icon: const Icon(Icons.add),
-                      label: const Text("AGREGAR"),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blueAccent,
-                        textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-
-                Expanded(
-                  child: _selectedProducts.isEmpty
-                      ? Center(
-                          child: Text(
-                            "Agregue productos para venta inmediata",
-                            style: TextStyle(color: Colors.grey[400]),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _selectedProducts.length,
-                          itemBuilder: (context, index) {
-                            final item = _selectedProducts[index];
-                            return Card(
-                              elevation: 0,
-                              color: Colors.grey[50],
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: ListTile(
-                                dense: true,
-                                title: Text(item['name'], maxLines: 1),
-                                subtitle: Text(
-                                  "Cant: ${item['qty']} - \$${item['list_price']}",
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF0D59F2,
+                                ).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.star,
+                                color: Color(0xFF0D59F2),
+                                size: 32,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    lead.name,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E293B),
+                                    ),
                                   ),
-                                  onPressed: () => _removeProduct(index),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.business,
+                                        size: 16,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          lead.partnerName ?? 'Sin Cliente',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Color(0xFF64748B),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (lead.function != null &&
+                                      lead.function!.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        lead.function!,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            // Priority Badge
+                            if (lead.priority != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star,
+                                      size: 12,
+                                      color: Colors.amber,
+                                    ),
+                                    Text(
+                                      " ${lead.priority}",
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.amber,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
+                          ],
                         ),
-                ),
-
-                // Action Button (HOT SALE)
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          Colors.green[700], // Green for Money/Sale
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 4,
-                    ),
-                    onPressed: _isProcessing ? null : () => _startHotSale(lead),
-                    icon: _isProcessing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
+                        const Divider(height: 32),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildStatItem(
+                              "Revenue",
+                              "\$${lead.expectedRevenue.toStringAsFixed(2)}",
+                              Icons.attach_money,
+                              Colors.green,
                             ),
-                          )
-                        : const Icon(Icons.flash_on),
-                    label: Text(
-                      _isProcessing ? "Procesando..." : "FACTURAR AHORA",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                            _buildStatItem(
+                              "Probability",
+                              "${lead.probability}%",
+                              Icons.donut_large,
+                              Colors.orange,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- CONTACT INFO ---
+                  const Text(
+                    "INFORMACIÓN DE CONTACTO",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF94A3B8),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildDetailRow(
+                          Icons.email_outlined,
+                          "Email",
+                          lead.email ?? "N/A",
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDetailRow(
+                          Icons.phone_outlined,
+                          "Teléfono",
+                          lead.phone ?? "N/A",
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDetailRow(
+                          Icons.language,
+                          "Website",
+                          lead.website ?? "N/A",
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- ADDRESS INFO ---
+                  const Text(
+                    "DIRECCIÓN",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF94A3B8),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildDetailRow(
+                          Icons.location_on_outlined,
+                          "Calle",
+                          lead.street ?? "N/A",
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildDetailRow(
+                                Icons.location_city,
+                                "Ciudad",
+                                lead.city ?? "N/A",
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildDetailRow(
+                                Icons.numbers,
+                                "C. Postal",
+                                lead.zip ?? "N/A",
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDetailRow(
+                          Icons.flag_outlined,
+                          "País",
+                          lead.countryName ?? "N/A",
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // --- NOTES SECTION ---
+                  const Text(
+                    "NOTAS INTERNAS",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF94A3B8),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: _buildDetailRow(
+                      Icons.notes,
+                      "Descripción",
+                      _stripHtml(lead.description),
+                      isMultiLine: true,
+                    ),
+                  ),
+
+                  const Divider(height: 32),
+
+                  // --- ACTIONS ---
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0D59F2), Color(0xFF0A46C2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF0D59F2,
+                            ).withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => QuoteCreationScreen(
+                                partnerName: lead.partnerName ?? 'Unknown',
+                                partnerId: lead.partnerId,
+                                opportunityId: lead.id,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.receipt_long, size: 24),
+                        label: const Text(
+                          "COTIZACIÓN",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 1,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  // ADD PADDING TO AVOID BOTTOM OVERFLOW
+                  const SizedBox(height: 50),
+                ],
+              ),
             ),
           );
         },
@@ -301,44 +414,100 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.blueGrey, size: 16),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text("$label: $value", style: const TextStyle(fontSize: 14)),
-        ),
-      ],
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
-}
 
-class _QtyDialog extends StatefulWidget {
-  @override
-  State<_QtyDialog> createState() => _QtyDialogState();
-}
+  String _stripHtml(String? htmlString) {
+    if (htmlString == null || htmlString.isEmpty) return "Sin descripción";
+    final document = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: true);
+    var parsed = htmlString.replaceAll(document, '');
+    return parsed.trim().isEmpty ? "Sin descripción" : parsed.trim();
+  }
 
-class _QtyDialogState extends State<_QtyDialog> {
-  final _controller = TextEditingController(text: "1");
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Cantidad"),
-      content: TextField(
-        controller: _controller,
-        keyboardType: TextInputType.number,
-        autofocus: true,
-        decoration: const InputDecoration(suffixText: "Und"),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancelar"),
+  Widget _buildDetailRow(
+    IconData icon,
+    String label,
+    String? value, { // changed to nullable
+    bool isMultiLine = false,
+  }) {
+    final displayValue = (value == null || value.trim().isEmpty) ? "—" : value;
+
+    return Row(
+      crossAxisAlignment: isMultiLine
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF64748B), size: 18),
         ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text("OK"),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                displayValue,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF1E293B),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

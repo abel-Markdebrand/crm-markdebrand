@@ -21,7 +21,7 @@ class StitchBottomNav extends StatelessWidget {
         border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -56,7 +56,7 @@ class StitchBottomNav extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
