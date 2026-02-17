@@ -85,12 +85,8 @@ class OdooService {
       debugPrint("WhatsApp Client: Initializing dual-auth recovery...");
 
       // 1. Try Admin Login (Production DB first if on Prisma)
-      final String targetDb =
-          (_baseUrl != null &&
-              _baseUrl!.contains("app.prismahexagon.com") &&
-              _prismaDb != null)
-          ? _prismaDb!
-          : _whatsappDb;
+      // STRICT: Use the DB provided during login (_prismaDb) or fail.
+      final String targetDb = _prismaDb ?? _whatsappDb;
 
       final adminUid = await authenticatePrisma(
         db: targetDb,
@@ -392,12 +388,56 @@ class OdooService {
           'fields': ['image_1920', 'phone', 'function', 'email'],
         },
       );
+
       if (partnerRes is List && partnerRes.isNotEmpty) {
         userData.addAll(partnerRes[0] as Map<String, dynamic>);
       }
     }
 
     return userData;
+  }
+
+  /// Actualiza la imagen de perfil del usuario (en res.partner)
+  Future<bool> updateUserProfileImage(String base64Image) async {
+    final uid = currentUserId;
+    if (uid == null) return false;
+
+    try {
+      // 1. Get Partner ID
+      final userRes = await callKw(
+        model: 'res.users',
+        method: 'read',
+        args: [
+          [uid],
+        ],
+        kwargs: {
+          'fields': ['partner_id'],
+        },
+      );
+
+      if (userRes is List && userRes.isNotEmpty) {
+        final partnerId = userRes[0]['partner_id'][0];
+        if (partnerId is int) {
+          // 2. Update res.partner
+          await callKw(
+            model: 'res.partner',
+            method: 'write',
+            args: [
+              [partnerId],
+              {'image_1920': base64Image},
+            ],
+            kwargs: {},
+          );
+          debugPrint(
+            "✅ OdooService: Profile image updated for partner $partnerId",
+          );
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ OdooService: Error updating profile image: $e");
+    }
+    return false;
   }
 
   /// Método centralizado para realizar llamadas a Odoo con manejo de errores robusto
@@ -408,22 +448,60 @@ class OdooService {
     required List<dynamic> args,
     Map<String, dynamic>? kwargs,
   }) async {
-    // ROUTING: Use Prisma Robust RPC if in Prisma Mode
-    if (_isPrismaMode) {
-      return _callPrismaKw(
-        model: model,
-        method: method,
-        args: args,
-        kwargs: kwargs,
-      );
-    }
-
+    // Unified Call (Standard Odoo Client)
     if (_client == null) {
       throw OdooServiceException("Client not initialized. Please login first.");
     }
 
     try {
       debugPrint("RPC Call -> Model: $model, Method: $method");
+
+      // PRISMA FIX: Use Stateless Auth Wrapper if in Prisma Mode
+      if (_isPrismaMode &&
+          _prismaUid != null &&
+          _prismaApiKey != null &&
+          _prismaDb != null) {
+        debugPrint(">> Using Stateless Prisma Auth for $model.$method");
+        // We must manually construct the execute_kw call
+        // because OdooClient.callKw relies on session_id cookie which might be lost/expired.
+        final commonUrl = "${_baseUrl!}/jsonrpc";
+        final payload = {
+          "jsonrpc": "2.0",
+          "method": "call",
+          "params": {
+            "service": "object",
+            "method": "execute_kw",
+            "args": [
+              _prismaDb!,
+              _prismaUid!,
+              _prismaApiKey!, // Password/API Key
+              model,
+              method,
+              args,
+              kwargs ?? {},
+            ],
+          },
+          "id": DateTime.now().millisecondsSinceEpoch,
+        };
+
+        final response = await http.post(
+          Uri.parse(commonUrl),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode(payload),
+        );
+
+        final decoded = jsonDecode(response.body);
+        if (decoded['error'] != null) {
+          // Construct OdooException manually to throw it and catch below
+          // or throw explicit service exception
+          final error = decoded['error'];
+          debugPrint("❌ Stateless RPC Error: $error");
+          throw OdooException(error);
+        }
+        return decoded['result'];
+      }
+
+      // Default Standard Odoo Client Call
       return await _client!.callKw({
         'model': model,
         'method': method,
@@ -443,72 +521,6 @@ class OdooService {
         );
       }
       throw OdooServiceException("Error desconocido: $e");
-    }
-  }
-
-  /// Robust JSON-RPC 2.0 Executor for Prisma Model Methods
-  Future<dynamic> _callPrismaKw({
-    required String model,
-    required String method,
-    required List<dynamic> args,
-    Map<String, dynamic>? kwargs,
-  }) async {
-    final String url = "$_baseUrl/jsonrpc";
-    debugPrint("[PRISMA RPC] $model.$method -> $url");
-
-    if (_prismaUid == null || _prismaApiKey == null || _prismaDb == null) {
-      throw OdooServiceException(
-        "Prisma credentials missing. Please re-login.",
-      );
-    }
-
-    try {
-      final body = {
-        "jsonrpc": "2.0",
-        "method": "call",
-        "params": {
-          "service": "object",
-          "method": "execute_kw",
-          "args": [
-            _prismaDb,
-            _prismaUid,
-            _prismaApiKey,
-            model,
-            method,
-            args,
-            kwargs ?? {},
-          ],
-        },
-        "id": 1,
-      };
-
-      final response = await http
-          .post(
-            Uri.parse(url),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      final decoded = jsonDecode(response.body);
-
-      if (decoded['error'] != null) {
-        final errorJson = jsonEncode(decoded['error']);
-        debugPrint("❌ Prisma RPC Error: $errorJson");
-
-        final errorMsg = decoded['error']['message'] ?? 'Error desconocido';
-        final errorData = decoded['error']['data'] ?? {};
-        final faultCode = errorData['faultCode'] ?? '';
-
-        throw OdooServiceException(
-          "Error en Odoo (Prisma): $errorMsg ${faultCode != '' ? '($faultCode)' : ''}",
-        );
-      }
-
-      return decoded['result'];
-    } catch (e) {
-      debugPrint("❌ Prisma RPC Connection Error: $e");
-      throw OdooServiceException("Error conectando con Prisma RPC: $e");
     }
   }
 
@@ -1324,17 +1336,12 @@ class OdooService {
       try {
         final uri = Uri.parse(_baseUrl!);
         final host = uri.host;
-        final scheme = uri.scheme;
 
         if (domain.isEmpty) domain = host;
 
-        if (wsUrl.isEmpty) {
-          if (scheme == 'https') {
-            wsUrl = "wss://$host:8089/ws";
-          } else {
-            wsUrl = "ws://$host:8071/ws";
-          }
-        }
+        // STRICT PRODUCTION POLICY: ALWAYS FORCE SECURE WSS
+        // No checks for scheme or host. Always assume Production/VoIP server.
+        wsUrl = "wss://$host:8089/ws";
         debugPrint("🔧 OdooService: Inferred -> Domain: $domain, WS: $wsUrl");
       } catch (e) {
         debugPrint("❌ OdooService: Inference failed: $e");
@@ -1472,12 +1479,9 @@ class OdooService {
 
     try {
       // 19/Feb Fix: Dynamically use the production DB if on Prisma
-      final String dbToUse =
-          (_baseUrl != null &&
-              _baseUrl!.contains("app.prismahexagon.com") &&
-              _prismaDb != null)
-          ? _prismaDb!
-          : _whatsappDb;
+      // STRICT: Use the DB provided during login (_prismaDb) or fail.
+      // We do NOT want to fallback to a hardcoded 'test19' unless explicitly set.
+      final String dbToUse = _prismaDb ?? _whatsappDb;
 
       final String passToUse =
           (_whatsAppClient == _client && _prismaApiKey != null)
@@ -1492,7 +1496,8 @@ class OdooService {
           "method": "execute_kw",
           "args": [
             dbToUse,
-            _whatsappUid!,
+            _whatsappUid ??
+                _prismaUid!, // Fallback to current UID if whatsappUid is null
             passToUse,
             model,
             method,
@@ -1875,6 +1880,12 @@ class OdooService {
         ? (authorId != secondaryPartnerId)
         : (authorId == _mainPartnerId);
 
+    if (m['id'] != null) {
+      debugPrint(
+        "[MAP] Mapping message ${m['id']} - isOutgoing: $isOutgoing, authorId: $authorId, secondaryPartnerId: $secondaryPartnerId",
+      );
+    }
+
     String body = m['body'] is String ? m['body'] : '';
     body = body.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
@@ -1901,13 +1912,19 @@ class OdooService {
         }
 
         final nameLower = (fileName ?? '').toLowerCase();
-        if (mime.startsWith('audio/')) {
-          type = MessageType.audio;
-        } else if (mime.startsWith('image/') ||
+        final isImage =
+            mime.startsWith('image/') ||
             nameLower.endsWith('.jpg') ||
             nameLower.endsWith('.jpeg') ||
             nameLower.endsWith('.png') ||
-            nameLower.endsWith('.webp')) {
+            nameLower.endsWith('.webp') ||
+            nameLower.endsWith('.gif');
+
+        if (mime.startsWith('audio/') ||
+            nameLower.endsWith('.m4a') ||
+            nameLower.endsWith('.mp3')) {
+          type = MessageType.audio;
+        } else if (isImage) {
           if (mime == 'image/webp' || nameLower.endsWith('.webp')) {
             type = MessageType.sticker;
           } else {
@@ -2048,10 +2065,12 @@ class OdooService {
         );
         if (res is int) {
           discussMsgId = res;
-          debugPrint("WhatsApp: Sync successful with Discuss ID $discussMsgId");
+          debugPrint("[ODOO] message_post success. ID: $discussMsgId");
+        } else {
+          debugPrint("[ODOO] message_post unexpected result: $res");
         }
       } catch (e) {
-        debugPrint("WhatsApp Sync Error (Discuss): $e");
+        debugPrint("[ODOO] message_post ERROR: $e");
       }
 
       if (discussMsgId == null) {
@@ -2341,6 +2360,9 @@ class OdooService {
       );
 
       if (messages is List && messages.isNotEmpty) {
+        debugPrint(
+          "[ODOO] Poll found ${messages.length} messages newer than $lastMessageId",
+        );
         // Collect Attachment IDs
         final Set<int> attachmentIds = {};
         for (var m in messages) {

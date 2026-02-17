@@ -13,6 +13,8 @@ class WhatsAppMessage {
   final String? fileName; // Added for file display
   final Duration? duration; // For audio messages
 
+  final String? errorMessage; // Detailed failure reason
+
   WhatsAppMessage({
     required this.id,
     required this.body,
@@ -23,6 +25,7 @@ class WhatsAppMessage {
     this.attachmentUrl,
     this.fileName,
     this.duration,
+    this.errorMessage,
   });
 
   factory WhatsAppMessage.fromJson(Map<String, dynamic> json) {
@@ -41,6 +44,7 @@ class WhatsAppMessage {
       duration: json['duration'] != null
           ? Duration(seconds: json['duration'] as int)
           : null,
+      errorMessage: json['error_message'] as String?,
     );
   }
 
@@ -55,6 +59,7 @@ class WhatsAppMessage {
       'attachment_url': attachmentUrl,
       'file_name': fileName,
       'duration': duration?.inSeconds,
+      'error_message': errorMessage,
     };
   }
 

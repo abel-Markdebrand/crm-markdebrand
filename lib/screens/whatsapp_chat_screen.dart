@@ -107,6 +107,9 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
       );
 
       if (newMessages.isNotEmpty && mounted) {
+        debugPrint(
+          "[POLL] New messages received: ${newMessages.length}. Last ID: $_lastMessageId",
+        );
         setState(() {
           // Filter out messages we already have (by ID) or that we just sent ourselves
           final filteredNew = newMessages.where((msg) {
@@ -120,19 +123,34 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
             if (msg.isOutgoing) {
               matchesPending = _messages.any(
                 (m) =>
-                    m.state == MessageState.pending &&
+                    (m.state == MessageState.pending ||
+                        m.state == MessageState.failed) &&
                     m.body == msg.body &&
                     m.type == msg.type,
               );
             }
 
+            if (alreadyExists)
+              debugPrint("[POLL] Ignored (Already exists): ${msg.id}");
+            if (isOurSentMessage)
+              debugPrint("[POLL] Ignored (In _sentMessageIds): ${msg.id}");
+            if (matchesPending)
+              debugPrint(
+                "[POLL] Ignored (Matches pending or failed bubble): Body: ${msg.body.substring(0, _min(10, msg.body.length))}",
+              );
+
             return !alreadyExists && !isOurSentMessage && !matchesPending;
           }).toList();
 
           if (filteredNew.isNotEmpty) {
+            debugPrint(
+              "[POLL] Adding ${filteredNew.length} new messages to UI",
+            );
             _messages.addAll(filteredNew);
             _lastMessageId = newMessages.last.id;
             _scrollToBottom();
+          } else {
+            debugPrint("[POLL] No new unique messages to add");
           }
         });
       }
@@ -140,6 +158,8 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
       debugPrint("Polling error: $e");
     }
   }
+
+  int _min(int a, int b) => a < b ? a : b;
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -172,7 +192,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
 
     try {
       debugPrint(
-        "WhatsApp: Sending text to partner ${widget.partnerId ?? 'Unknown'} (Channel: ${widget.channelId}): $text",
+        "[SEND] Text Start: partner ${widget.partnerId} (Channel: ${widget.channelId}) text: ${text.substring(0, _min(15, text.length))}",
       );
       final sentMessage = await _odooService.sendWhatsAppMessage(
         widget.partnerId,
@@ -183,34 +203,25 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
       if (mounted) {
         if (sentMessage != null) {
           debugPrint(
-            "WhatsApp: Message sent successfully with ID ${sentMessage.id}",
+            "[SEND] Text success. Real ID: ${sentMessage.id} (Temp ID: $tempId)",
           );
-          setState(() {
-            final alreadyPolledIndex = _messages.indexWhere(
-              (m) => m.id == sentMessage.id,
-            );
-            final tempIndex = _messages.indexWhere((m) => m.id == tempId);
-
-            if (alreadyPolledIndex != -1) {
-              if (tempIndex != -1) {
-                _messages.removeAt(tempIndex);
-              }
-            } else if (tempIndex != -1) {
-              _messages[tempIndex] = sentMessage; // Replace temp with real
-            }
-
-            _lastMessageId = sentMessage.id;
-            _sentMessageIds.add(sentMessage.id);
-          });
+          _replaceTempWithReal(tempId, sentMessage);
         } else {
-          debugPrint("WhatsApp: Send returned null (possible API error)");
-          _markAsFailed(tempId, text);
+          debugPrint("[SEND] Text returned NULL (API Error)");
+          _markAsFailed(
+            tempId,
+            text,
+            error: "Error del servidor al enviar texto",
+          );
         }
       }
     } catch (e) {
-      debugPrint("WhatsApp: Send failed with error: $e");
+      debugPrint("[SEND] Text failure: $e");
       if (mounted) {
-        _markAsFailed(tempId, text);
+        final errorMsg = e.toString().contains("OdooServiceException")
+            ? e.toString().replaceFirst("OdooServiceException: ", "")
+            : "Error de conexión o servidor";
+        _markAsFailed(tempId, text, error: errorMsg);
       }
     }
   }
@@ -219,6 +230,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
     int tempId,
     String text, {
     MessageType type = MessageType.text,
+    String? error,
   }) {
     setState(() {
       final index = _messages.indexWhere((m) => m.id == tempId);
@@ -232,12 +244,19 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
           isOutgoing: true,
           timestamp: DateTime.now(),
           attachmentUrl: existingUrl,
+          errorMessage: error,
         );
       }
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Failed to send message")));
+
+    final displayError = error ?? "Failed to send message";
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(displayError),
+        backgroundColor: const Color(0xFFF04438),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _handleSendAudio(String path) async {
@@ -260,44 +279,42 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
 
     try {
       debugPrint(
-        "WhatsApp: Sending audio from path: $path (Channel: ${widget.channelId})",
+        "[SEND] Audio Start: partner ${widget.partnerId} (Channel: ${widget.channelId}) path: $path",
       );
       final sentMessage = await _odooService.sendWhatsAppAudio(
         widget.partnerId,
         path,
         channelId: widget.channelId,
       );
+
       if (mounted) {
         if (sentMessage != null) {
           debugPrint(
-            "WhatsApp: Audio sent successfully with ID ${sentMessage.id}",
+            "[SEND] Audio success. Real ID: ${sentMessage.id} (Temp ID: $tempId)",
           );
-          setState(() {
-            final alreadyPolledIndex = _messages.indexWhere(
-              (m) => m.id == sentMessage.id,
-            );
-            final tempIndex = _messages.indexWhere((m) => m.id == tempId);
-
-            if (alreadyPolledIndex != -1) {
-              if (tempIndex != -1) {
-                _messages.removeAt(tempIndex);
-              }
-            } else if (tempIndex != -1) {
-              _messages[tempIndex] = sentMessage; // Replace temp with real
-            }
-
-            _lastMessageId = sentMessage.id;
-            _sentMessageIds.add(sentMessage.id);
-          });
+          _replaceTempWithReal(tempId, sentMessage);
         } else {
-          debugPrint("WhatsApp: Audio send returned null");
-          _markAsFailed(tempId, "Audio failed", type: MessageType.audio);
+          debugPrint("[SEND] Audio returned NULL (API Error)");
+          _markAsFailed(
+            tempId,
+            "Audio failed",
+            type: MessageType.audio,
+            error: "Error al subir audio",
+          );
         }
       }
     } catch (e) {
-      debugPrint("WhatsApp: Audio send failed with error: $e");
+      debugPrint("[SEND] Audio failure: $e");
       if (mounted) {
-        _markAsFailed(tempId, "Audio failed", type: MessageType.audio);
+        final errorMsg = e.toString().contains("OdooServiceException")
+            ? e.toString().replaceFirst("OdooServiceException: ", "")
+            : "Error de conexión al enviar audio";
+        _markAsFailed(
+          tempId,
+          "Audio failed",
+          type: MessageType.audio,
+          error: errorMsg,
+        );
       }
     }
   }
@@ -491,7 +508,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
     // 3. Perform Upload
     try {
       debugPrint(
-        "WhatsApp: Sending file from path: $path (Channel: ${widget.channelId})",
+        "[SEND] File Start: partner ${widget.partnerId} (Channel: ${widget.channelId}) path: $path",
       );
       final sentMessage = await _odooService.sendWhatsAppFile(
         widget.partnerId,
@@ -502,35 +519,61 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
       if (mounted) {
         if (sentMessage != null) {
           debugPrint(
-            "WhatsApp: File sent successfully with ID ${sentMessage.id}",
+            "[SEND] File success. Real ID: ${sentMessage.id} (Temp ID: $tempId)",
           );
-          setState(() {
-            final alreadyPolledIndex = _messages.indexWhere(
-              (m) => m.id == sentMessage.id,
-            );
-            final tempIndex = _messages.indexWhere((m) => m.id == tempId);
-
-            if (alreadyPolledIndex != -1) {
-              if (tempIndex != -1) {
-                _messages.removeAt(tempIndex);
-              }
-            } else if (tempIndex != -1) {
-              _messages[tempIndex] = sentMessage; // Replace temp with real
-            }
-
-            _lastMessageId = sentMessage.id;
-            _sentMessageIds.add(sentMessage.id);
-          });
+          _replaceTempWithReal(tempId, sentMessage);
         } else {
-          debugPrint("WhatsApp: File send returned null");
-          _markAsFailed(tempId, "File failed", type: type);
+          debugPrint("[SEND] File returned NULL (API Error)");
+          _markAsFailed(
+            tempId,
+            "File failed",
+            type: type,
+            error: "Error al subir archivo",
+          );
         }
       }
     } catch (e) {
-      debugPrint("WhatsApp: File send failed with error: $e");
+      debugPrint("[SEND] File failure: $e");
       if (mounted) {
-        _markAsFailed(tempId, "File failed", type: type);
+        final errorMsg = e.toString().contains("OdooServiceException")
+            ? e.toString().replaceFirst("OdooServiceException: ", "")
+            : "Error de conexión al enviar archivo";
+        _markAsFailed(tempId, "File failed", type: type, error: errorMsg);
       }
     }
+  }
+
+  /// Replaces an optimistic message (tempId) with the real one from server.
+  /// Handles deduplication if the message was already polled.
+  void _replaceTempWithReal(int tempId, WhatsAppMessage sentMessage) {
+    setState(() {
+      final alreadyPolledIndex = _messages.indexWhere(
+        (m) => m.id == sentMessage.id,
+      );
+      final tempIndex = _messages.indexWhere((m) => m.id == tempId);
+
+      debugPrint(
+        "[SEND] UI Update - alreadyPolledIndex: $alreadyPolledIndex, tempIndex: $tempIndex",
+      );
+
+      if (alreadyPolledIndex != -1) {
+        debugPrint(
+          "[SEND] Message already in UI from poll. Removing temp bubble.",
+        );
+        if (tempIndex != -1) {
+          _messages.removeAt(tempIndex);
+        }
+      } else if (tempIndex != -1) {
+        debugPrint("[SEND] Replacing temp bubble with real message.");
+        _messages[tempIndex] = sentMessage; // Replace temp with real
+      } else {
+        debugPrint(
+          "[SEND] WARNING: Temp message not found in list (tempId: $tempId)",
+        );
+      }
+
+      _lastMessageId = sentMessage.id;
+      _sentMessageIds.add(sentMessage.id);
+    });
   }
 }

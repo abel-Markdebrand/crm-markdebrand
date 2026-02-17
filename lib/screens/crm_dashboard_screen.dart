@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mvp_odoo/screens/products_screen.dart';
 import 'package:mvp_odoo/screens/whatsapp_list_screen.dart';
@@ -33,6 +34,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
   int _selectedStageId = -1;
   String _searchQuery = "";
   bool _isLoading = true;
+  Map<String, dynamic>? _userProfile;
 
   // Navigation State
   int _currentTabIndex = 0;
@@ -41,6 +43,20 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
   void initState() {
     super.initState();
     _loadStages();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await OdooService.instance.getUserProfile();
+      if (mounted) {
+        setState(() {
+          _userProfile = profile;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading user profile in dashboard: $e");
+    }
   }
 
   Future<void> _loadStages() async {
@@ -306,14 +322,15 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                onSelected: (value) {
+                onSelected: (value) async {
                   if (value == 'profile') {
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ProfileScreen(),
                       ),
                     );
+                    _loadUserProfile(); // Refresh after returning
                   } else if (value == 'reports') {
                     Navigator.push(
                       context,
@@ -370,12 +387,25 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                     ),
                   ),
                 ],
-                child: const CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    "https://i.pravatar.cc/150?img=11",
-                  ),
-                  radius: 18,
-                ),
+                child:
+                    _userProfile != null &&
+                        _userProfile!['image_1920'] != null &&
+                        (_userProfile!['image_1920'] as String).isNotEmpty
+                    ? CircleAvatar(
+                        backgroundImage: MemoryImage(
+                          base64Decode(_userProfile!['image_1920']),
+                        ),
+                        radius: 18,
+                      )
+                    : const CircleAvatar(
+                        backgroundColor: Color(0xFFE2E8F0),
+                        radius: 18,
+                        child: Icon(
+                          Icons.person,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ],
           ),

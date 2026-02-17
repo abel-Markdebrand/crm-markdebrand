@@ -7,9 +7,9 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:async';
 
 class ChatInput extends StatefulWidget {
-  final Function(String) onSendText;
-  final Function(String) onSendAudio;
-  final Function(String) onSendFile;
+  final Future<void> Function(String) onSendText;
+  final Future<void> Function(String) onSendAudio;
+  final Future<void> Function(String) onSendFile;
 
   const ChatInput({
     super.key,
@@ -87,10 +87,12 @@ class _ChatInputState extends State<ChatInput> {
 
     if (cancel || path == null) return;
 
-    // Check duration (too short?)
-    // if (_recordDuration.inMilliseconds < 500) return;
-
-    widget.onSendAudio(path);
+    setState(() => _isSending = true);
+    try {
+      await widget.onSendAudio(path);
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   Future<void> _pauseRecording() async {
@@ -127,26 +129,30 @@ class _ChatInputState extends State<ChatInput> {
     });
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     if (_hasText && !_isSending) {
       final text = _controller.text.trim();
       _controller.clear();
 
       setState(() => _isSending = true);
-      widget.onSendText(text);
-
-      // Reset sending state after a short delay
-      // In a real app, you might want to wait for the callback or use a Future
-      Future.delayed(const Duration(milliseconds: 1000), () {
+      try {
+        await widget.onSendText(text);
+      } finally {
         if (mounted) setState(() => _isSending = false);
-      });
+      }
     }
   }
 
   Future<void> _pickFile() async {
+    if (_isSending) return;
     final result = await FilePicker.platform.pickFiles();
     if (result != null && result.files.single.path != null) {
-      widget.onSendFile(result.files.single.path!);
+      setState(() => _isSending = true);
+      try {
+        await widget.onSendFile(result.files.single.path!);
+      } finally {
+        if (mounted) setState(() => _isSending = false);
+      }
     }
   }
 

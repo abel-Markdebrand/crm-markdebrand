@@ -15,16 +15,17 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   // CONFIGURACIÓN INTERNA: AJUSTA ESTOS VALORES EN EL CÓDIGO
-  final _urlController = TextEditingController(
-    text: 'http://147.93.40.102:8071',
+  final TextEditingController _urlController = TextEditingController(
+    text: 'https://app.prismahexagon.com',
   );
-  final _dbController = TextEditingController(text: 'testmdb');
+  final TextEditingController _dbController = TextEditingController(
+    text: 'test19',
+  );
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  String _selectedServer = "Demo"; // "Demo" or "Prisma"
   bool _showAdvanced = false;
 
   @override
@@ -37,24 +38,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        if (prefs.containsKey('odoo_url')) {
-          _urlController.text = prefs.getString('odoo_url')!;
-        }
-        if (prefs.containsKey('odoo_db')) {
-          _dbController.text = prefs.getString('odoo_db')!;
-        }
+        _urlController.text =
+            prefs.getString('odoo_url') ?? 'https://app.prismahexagon.com';
+        _dbController.text = prefs.getString('odoo_db') ?? 'test19';
+
         if (prefs.containsKey('odoo_user')) {
           _userController.text = prefs.getString('odoo_user')!;
         }
         if (prefs.containsKey('odoo_pass')) {
           _passwordController.text = prefs.getString('odoo_pass')!;
-        }
-
-        // Auto-detect server based on URL for better UX
-        if (_urlController.text.contains("prismahexagon.com")) {
-          _selectedServer = "Prisma";
-        } else {
-          _selectedServer = "Demo";
         }
       });
     }
@@ -68,19 +60,6 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString('odoo_pass', _passwordController.text);
   }
 
-  void _onServerChanged(String server) {
-    setState(() {
-      _selectedServer = server;
-      if (server == "Prisma") {
-        _urlController.text = "https://app.prismahexagon.com";
-        _dbController.text = "test19";
-      } else {
-        _urlController.text = "http://147.93.40.102:8071";
-        _dbController.text = "testmdb";
-      }
-    });
-  }
-
   Future<void> _login() async {
     setState(() => _isLoading = true);
 
@@ -89,14 +68,17 @@ class _LoginScreenState extends State<LoginScreen> {
       await _saveCredentials();
 
       // Inicializamos el cliente
-      OdooService.instance.init(_urlController.text);
+      final url = _urlController.text.trim();
+      OdooService.instance.init(url);
 
       // Autenticación robusta
-      await OdooService.instance.authenticate(
-        _dbController.text,
-        _userController.text,
-        _passwordController.text,
-      );
+      final db = _dbController.text.trim();
+      final user = _userController.text.trim();
+      final pass = _passwordController.text.trim();
+
+      debugPrint("LOGIN ATTEMPT: URL=$url, DB=$db, User=$user");
+
+      await OdooService.instance.authenticate(db, user, pass);
 
       // Start services
       if (!OdooService.instance.isPrismaMode) {
@@ -196,25 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 40),
 
-                      // SERVER SELECTOR
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildServerButton("Demo", "Staging"),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildServerButton("Prisma", "Production"),
-                            ),
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 32),
 
                       // FORM
@@ -382,53 +345,6 @@ class _LoginScreenState extends State<LoginScreen> {
           fontWeight: FontWeight.w700,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
           letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildServerButton(String name, String subtitle) {
-    final isSelected = _selectedServer == name;
-    final primaryColor = Theme.of(context).primaryColor;
-
-    return GestureDetector(
-      onTap: () => _onServerChanged(name),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Column(
-          children: [
-            Text(
-              name,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? primaryColor : const Color(0xFF64748B),
-              ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: isSelected
-                    ? primaryColor.withValues(alpha: 0.7)
-                    : const Color(0xFF94A3B8),
-              ),
-            ),
-          ],
         ),
       ),
     );

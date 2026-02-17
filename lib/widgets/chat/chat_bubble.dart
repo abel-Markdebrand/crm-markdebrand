@@ -205,6 +205,19 @@ class _ChatBubbleState extends State<ChatBubble>
               ],
             ),
           ),
+          if (widget.message.state == MessageState.failed &&
+              widget.message.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, right: 4, left: 4),
+              child: Text(
+                widget.message.errorMessage!,
+                style: const TextStyle(
+                  color: Color(0xFFD92D20),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
         ],
       ),
     );
