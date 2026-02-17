@@ -218,9 +218,12 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
     } catch (e) {
       debugPrint("[SEND] Text failure: $e");
       if (mounted) {
-        final errorMsg = e.toString().contains("OdooServiceException")
-            ? e.toString().replaceFirst("OdooServiceException: ", "")
-            : "Error de conexión o servidor";
+        String errorMsg = "Error de conexión o servidor";
+        if (e is OdooServiceException) {
+          errorMsg = e.message;
+        } else if (e.toString().contains("OdooServiceException")) {
+          errorMsg = e.toString().replaceFirst("OdooServiceException: ", "");
+        }
         _markAsFailed(tempId, text, error: errorMsg);
       }
     }
@@ -306,9 +309,12 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
     } catch (e) {
       debugPrint("[SEND] Audio failure: $e");
       if (mounted) {
-        final errorMsg = e.toString().contains("OdooServiceException")
-            ? e.toString().replaceFirst("OdooServiceException: ", "")
-            : "Error de conexión al enviar audio";
+        String errorMsg = "Error de conexión al enviar audio";
+        if (e is OdooServiceException) {
+          errorMsg = e.message;
+        } else if (e.toString().contains("OdooServiceException")) {
+          errorMsg = e.toString().replaceFirst("OdooServiceException: ", "");
+        }
         _markAsFailed(
           tempId,
           "Audio failed",
@@ -535,9 +541,12 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
     } catch (e) {
       debugPrint("[SEND] File failure: $e");
       if (mounted) {
-        final errorMsg = e.toString().contains("OdooServiceException")
-            ? e.toString().replaceFirst("OdooServiceException: ", "")
-            : "Error de conexión al enviar archivo";
+        String errorMsg = "Error de conexión al enviar archivo";
+        if (e is OdooServiceException) {
+          errorMsg = e.message;
+        } else if (e.toString().contains("OdooServiceException")) {
+          errorMsg = e.toString().replaceFirst("OdooServiceException: ", "");
+        }
         _markAsFailed(tempId, "File failed", type: type, error: errorMsg);
       }
     }

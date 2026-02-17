@@ -419,17 +419,47 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
       int orderId;
       if (_savedOrderId == null) {
         final success = await _handleSaveDraft(); // Save first
-        if (!success) {
-          // If save failed, validation checks already showed snackbars, so just return
-          return;
-        }
+        if (!success) return;
         orderId = _savedOrderId!;
       } else {
         orderId = _savedOrderId!;
       }
 
-      // Change state to sent
+      // 1. Change state to sent in Odoo
       await _quoteService.markAsSent(orderId);
+
+      // 2. WHATSAPP INTEGRATION: Send PDF to Customer
+      try {
+        final finalPartnerId = widget.partnerId ?? _selectedPartnerId;
+        if (finalPartnerId != null) {
+          debugPrint(
+            "WhatsApp Sync: Fetching data for Partner $finalPartnerId",
+          );
+
+          // Get Phone
+          final phone = await _odooService.getPartnerPhone(finalPartnerId);
+          if (phone == null || phone.isEmpty) {
+            debugPrint("WhatsApp Sync: No phone found for partner.");
+          } else {
+            // Generate PDF
+            final pdfPath = await _quoteService.getQuotePdf(orderId);
+            if (pdfPath != null) {
+              debugPrint("WhatsApp Sync: Sending PDF $pdfPath to $phone");
+              await _odooService.sendWhatsAppFile(finalPartnerId, pdfPath);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Cotización enviada por WhatsApp!"),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            }
+          }
+        }
+      } catch (wsError) {
+        debugPrint("WhatsApp Sync Error (non-blocking): $wsError");
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(

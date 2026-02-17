@@ -3,6 +3,8 @@ import 'package:mvp_odoo/services/crm_service.dart';
 import '../models/crm_models.dart';
 import 'package:mvp_odoo/screens/leads_creation_screen.dart';
 import 'package:mvp_odoo/screens/quote_creation_screen.dart';
+import '../services/voip_service.dart';
+import '../services/call_manager.dart';
 
 class OpportunityDetailScreen extends StatefulWidget {
   final int leadId;
@@ -251,6 +253,10 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                           Icons.phone_outlined,
                           "Teléfono",
                           lead.phone ?? "N/A",
+                          suffix: _buildCallButton(
+                            lead.phone,
+                            isProminent: true,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         _buildDetailRow(
@@ -466,8 +472,9 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
   Widget _buildDetailRow(
     IconData icon,
     String label,
-    String? value, { // changed to nullable
+    String? value, {
     bool isMultiLine = false,
+    Widget? suffix,
   }) {
     final displayValue = (value == null || value.trim().isEmpty) ? "—" : value;
 
@@ -509,7 +516,89 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
             ],
           ),
         ),
+        if (suffix != null) suffix,
       ],
+    );
+  }
+
+  Widget _buildCallButton(String? phone, {bool isProminent = false}) {
+    if (phone == null || phone.isEmpty) return const SizedBox();
+
+    return ListenableBuilder(
+      listenable: VoipService.instance.callManager,
+      builder: (context, _) {
+        final state = VoipService.instance.callManager.state;
+        final isRegistered = state == AppCallState.registered;
+
+        if (isProminent) {
+          return InkWell(
+            onTap: isRegistered
+                ? () {
+                    VoipService.instance.makeCall(phone);
+                  }
+                : () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("VoIP no registrado")),
+                    );
+                  },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isRegistered
+                    ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+                    : Colors.grey.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isRegistered ? const Color(0xFF22C55E) : Colors.grey,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.phone,
+                    color: isRegistered ? const Color(0xFF15803D) : Colors.grey,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "LLAMAR",
+                    style: TextStyle(
+                      color: isRegistered
+                          ? const Color(0xFF15803D)
+                          : Colors.grey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return IconButton(
+          onPressed: isRegistered
+              ? () {
+                  VoipService.instance.makeCall(phone);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Llamando a $phone..."),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              : null,
+          icon: Icon(
+            Icons.phone_forwarded,
+            color: isRegistered ? Colors.green : Colors.grey,
+          ),
+          tooltip: isRegistered ? "Llamar" : "VoIP no disponible",
+        );
+      },
     );
   }
 }

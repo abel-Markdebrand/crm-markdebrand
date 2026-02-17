@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'services/odoo_service.dart';
 import 'services/voip_service.dart';
 import 'services/notification_service.dart';
@@ -120,7 +121,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).primaryColor;
     final textMuted = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return Scaffold(
@@ -300,19 +300,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 24),
 
-                      // FOOTER LINKS
-                      TextButton(
-                        onPressed: () {}, // Forgot password placeholder
-                        child: Text(
-                          "Forgot your password?",
-                          style: TextStyle(
-                            color: primaryColor,
-                            fontWeight: FontWeight.w600,
+                      // LEGAL LINKS
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildFooterLink(
+                            "Terms of Use",
+                            "https://markdebrand.com/terms",
                           ),
-                        ),
+                          Text(
+                            " • ",
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
+                          _buildFooterLink(
+                            "Privacy Policy",
+                            "https://markdebrand.com/privacy",
+                          ),
+                        ],
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -320,16 +327,30 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             // FOOTER COPYRIGHT
             Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.only(bottom: 24.0, left: 24, right: 24),
               child: GestureDetector(
                 onTap: () => UpdateService.instance.showUpdateDialog(context),
                 child: Text(
-                  "© 2024 Markdebrand Agency • v2.4.0 (Tap to Check for Updates)",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  "© 2024 Markdebrand Agency • v2.4.0",
+                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterLink(String label, String url) {
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[600],
+          decoration: TextDecoration.underline,
         ),
       ),
     );

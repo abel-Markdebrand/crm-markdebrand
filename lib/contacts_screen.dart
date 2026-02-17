@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mvp_odoo/services/odoo_service.dart';
+import 'package:mvp_odoo/services/voip_service.dart';
+import 'package:mvp_odoo/services/call_manager.dart';
 import 'package:mvp_odoo/screens/contact_form_screen.dart';
 
 class ContactsScreen extends StatefulWidget {
@@ -42,109 +44,286 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   // Delete function removed as it is not used in the read-only list view
 
+  String _searchQuery = "";
+
   @override
   Widget build(BuildContext context) {
-    // Modificación: Retornamos Stack para mantener el FAB sin Scaffold interno
-    // List View Only (No Create Button here, moved to CRM)
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : ListView.separated(
+    final filteredContacts = contacts.where((c) {
+      final name = (c['name'] is String ? c['name'] as String : "")
+          .toLowerCase();
+      final email = (c['email'] is String ? c['email'] as String : "")
+          .toLowerCase();
+      final query = _searchQuery.toLowerCase();
+      return name.contains(query) || email.contains(query);
+    }).toList();
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC), // Ultra light slate
+      body: Column(
+        children: [
+          // Modern Header with Search
+          _buildHeader(),
+
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredContacts.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filteredContacts.length,
+                    itemBuilder: (context, index) {
+                      final contact = filteredContacts[index];
+                      return _buildContactCard(contact);
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.only(top: 20, left: 16, right: 16, bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Contactos",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              IconButton(
+                onPressed: _fetchContacts,
+                icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Search Bar
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              onChanged: (val) => setState(() => _searchQuery = val),
+              decoration: const InputDecoration(
+                hintText: "Buscar por nombre o email...",
+                prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8)),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard(dynamic contact) {
+    final name = contact['name'] is String ? contact['name'] : "Sin nombre";
+    final email = contact['email'] is String ? contact['email'] : "Sin email";
+    final phone = contact['phone'] is String ? contact['phone'] : "";
+    final initial = (name.isNotEmpty ? name[0] : "U").toUpperCase();
+
+    // Custom colors for avatars based on name hash
+    final avatarColors = [
+      Colors.blue[400]!,
+      Colors.indigo[400]!,
+      Colors.purple[400]!,
+      Colors.teal[400]!,
+      Colors.orange[400]!,
+    ];
+    final color = avatarColors[name.length % avatarColors.length];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ContactFormScreen(partner: contact),
+              ),
+            );
+          },
+          child: Padding(
             padding: const EdgeInsets.all(16),
-            itemCount: contacts.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final contact = contacts[index];
-              // Stitch Design "Lead Card"
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ContactFormScreen(partner: contact),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Premium Avatar
+                Container(
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
+                    gradient: LinearGradient(
+                      colors: [color, color.withAlpha(200)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
+                        color: color.withAlpha(60),
                         blurRadius: 8,
-                        offset: const Offset(0, 4),
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  child: Row(
+                  alignment: Alignment.center,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Contact Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Avatar Placeholder
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          // Extract initial safely
-                          ((contact['name'] is String &&
-                                      (contact['name'] as String).isNotEmpty)
-                                  ? (contact['name'] as String)[0]
-                                  : "U")
-                              .toUpperCase(),
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Text Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 2),
+                      Text(
+                        email,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      if (phone.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
                           children: [
-                            Text(
-                              contact['name'] is String
-                                  ? contact['name']
-                                  : "Unknown",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF0D121C),
-                              ),
+                            const Icon(
+                              Icons.phone,
+                              size: 12,
+                              color: Color(0xFF94A3B8),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(width: 4),
                             Text(
-                              contact['email'] is String
-                                  ? contact['email']
-                                  : "No email",
+                              phone,
                               style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF49659C),
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      // Arrow
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
+                      ],
                     ],
                   ),
                 ),
-              );
-            },
-          );
+                const SizedBox(width: 8),
+                // Call Action
+                if (phone.isNotEmpty) _buildCallButton(phone),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Color(0xFFCBD5E1),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCallButton(String phone) {
+    return ListenableBuilder(
+      listenable: VoipService.instance.callManager,
+      builder: (context, _) {
+        final state = VoipService.instance.callManager.state;
+        final isRegistered = state == AppCallState.registered;
+        final color = isRegistered
+            ? const Color(0xFF22C55E)
+            : const Color(0xFF94A3B8);
+
+        return IconButton(
+          onPressed: isRegistered
+              ? () {
+                  VoipService.instance.makeCall(phone);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Llamando a $phone..."),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("VoIP no registrado")),
+                  );
+                },
+          icon: Icon(Icons.phone, color: color, size: 24),
+          style: IconButton.styleFrom(
+            backgroundColor: color.withValues(alpha: 0.1),
+            padding: const EdgeInsets.all(8),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            "No se encontraron contactos",
+            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+          ),
+        ],
+      ),
+    );
   }
 }

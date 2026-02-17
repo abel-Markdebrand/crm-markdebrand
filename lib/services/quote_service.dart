@@ -75,26 +75,33 @@ class QuoteService {
       'pricelist_id': pricelistId,
       'note': note ?? '',
       'state': 'draft',
-      // New Fields
       'client_order_ref': clientOrderRef,
-      'opportunity_id': opportunityId,
     };
+
+    if (opportunityId != null) {
+      // Defensive check for 'opportunity_id' existence in the server's model
+      final exists = await _odoo.fieldExists(
+        model: ApiRoutes.sales.model,
+        fieldName: 'opportunity_id',
+      );
+      if (exists) {
+        orderVals['opportunity_id'] = opportunityId;
+      } else {
+        debugPrint(
+          "⚠️ Field 'opportunity_id' missing in sale.order. Skipping CRM link.",
+        );
+      }
+    }
 
     if (paymentTermId != null) {
       orderVals['payment_term_id'] = paymentTermId;
     }
-    // Note: 'weight' is usually calculated, but if we want to force it?
-    // Odoo standard 'sale.order' might not have a writable 'weight' field (it sums lines).
-    // Instead we might save it to a custom field or description if requested.
-    // We will leave it out of standard write if Odoo usually computes it,
-    // OR we check if 'commitment_date' exists.
+
     if (commitmentDate != null) {
       orderVals['commitment_date'] = commitmentDate.toIso8601String();
     }
 
-    // If lines are provided, we can format them for One2many creation
     if (lines != null && lines.isNotEmpty) {
-      // Odoo One2many format: [0, 0, {values}]
       orderVals['order_line'] = lines.map((line) => [0, 0, line]).toList();
     }
 
@@ -248,5 +255,10 @@ class QuoteService {
       debugPrint("Error in convertToInvoice: $e");
       rethrow;
     }
+  }
+
+  /// Generates the PDF for a Quote
+  Future<String?> getQuotePdf(int orderId) async {
+    return await _odoo.renderReport('sale.report_saleorder', [orderId]);
   }
 }

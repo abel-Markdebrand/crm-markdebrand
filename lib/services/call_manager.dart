@@ -102,39 +102,25 @@ class CallManager extends ChangeNotifier implements SipUaHelperListener {
     final domain = cleanDomain;
     final user = _config!.sipLogin;
 
-   final settings = UaSettings()
-  ..uri = 'sip:$user@$domain'
+    final settings = UaSettings()
+      ..uri = 'sip:$user@$domain'
+      ..authorizationUser = user
+      ..password = _config!.sipPassword
+      ..displayName = user
+      // 🌐 TRANSPORTE DINÁMICO
+      ..webSocketUrl = _config!.wsUrl
+      ..transportType = TransportType.WS
+      ..register = true
+      // 📞 MEDIA
+      ..dtmfMode = DtmfMode.RFC2833
+      ..userAgent = 'Flutter SIP Client'
+      // ❄️ ICE
+      ..iceServers = [
+        {'url': 'stun:stun.l.google.com:19302'},
+      ];
 
-
-
-  
-  ..authorizationUser = user
-  ..password = _config!.sipPassword
-  ..displayName = user
-
-  // 🌐 TRANSPORTE CORRECTO
-  ..webSocketUrl = 'wss://pabx.axivox.com:3443'
-  ..transportType = TransportType.WS
-  ..register = true
-
-  // 📞 MEDIA
-  ..dtmfMode = DtmfMode.RFC2833
-  ..userAgent = 'Flutter SIP Client'
-
-  // ❄️ ICE
-  ..iceServers = [
-    {'url': 'stun:stun.l.google.com:19302'},
-  ];
-
-// 🔐 WebSocket settings
-settings.webSocketSettings.allowBadCertificate = true;
-settings.webSocketSettings.extraHeaders = {
-  'Origin': 'https://$domain',
-};
-
-    // 4. NETWORK & HEADERS
+    // 🔐 WebSocket settings
     settings.webSocketSettings.allowBadCertificate = true;
-    settings.webSocketSettings.userAgent = 'Dart SIP Client';
 
     // Auto-detect Origin Protocol
     final originScheme = _config!.wsUrl.startsWith('wss') ? 'https' : 'http';

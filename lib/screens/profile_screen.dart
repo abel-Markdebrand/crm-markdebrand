@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/odoo_service.dart';
 import '../utils/odoo_utils.dart';
 
@@ -274,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: kTextMuted,
+                            color: Color(0xFF64748B),
                             letterSpacing: 1.0,
                           ),
                         ),
@@ -295,6 +296,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Icons.business,
                           "Company",
                           _parseCompany(_userData['company_id']),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Legal Information Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "LEGAL INFORMATION",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildLegalRow(
+                          context,
+                          Icons.description_outlined,
+                          "Terms and Conditions",
+                          "https://markdebrand.com/terms",
+                        ),
+                        const Divider(height: 32),
+                        _buildLegalRow(
+                          context,
+                          Icons.privacy_tip_outlined,
+                          "Privacy Policy",
+                          "https://markdebrand.com/privacy",
                         ),
                       ],
                     ),
@@ -449,5 +497,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return companyField[1].toString();
     }
     return "Markdebrand"; // Default fallback
+  }
+
+  Widget _buildLegalRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String url,
+  ) {
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url)),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF64748B), size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: Color(0xFF94A3B8), size: 20),
+        ],
+      ),
+    );
   }
 }
