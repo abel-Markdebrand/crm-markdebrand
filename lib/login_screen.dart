@@ -19,9 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _urlController = TextEditingController(
     text: 'https://app.prismahexagon.com',
   );
-  final TextEditingController _dbController = TextEditingController(
-    text: 'test19',
-  );
+  final TextEditingController _dbController = TextEditingController(text: '');
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -41,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _urlController.text =
             prefs.getString('odoo_url') ?? 'https://app.prismahexagon.com';
-        _dbController.text = prefs.getString('odoo_db') ?? 'test19';
+        _dbController.text = prefs.getString('odoo_db') ?? '';
 
         if (prefs.containsKey('odoo_user')) {
           _userController.text = prefs.getString('odoo_user')!;
@@ -65,17 +63,32 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Guardar credenciales para futuro uso
-      await _saveCredentials();
-
       // Inicializamos el cliente
       final url = _urlController.text.trim();
       OdooService.instance.init(url);
 
-      // Autenticación robusta
-      final db = _dbController.text.trim();
+      // Autenticación robusta con detección automática de DB
+      String db = _dbController.text.trim();
       final user = _userController.text.trim();
       final pass = _passwordController.text.trim();
+
+      // Si no hay DB y no es el servidor de Prisma (que tiene DB fija o manejada internamente),
+      // intentamos detectarla.
+      if (db.isEmpty && !url.contains("app.prismahexagon.com")) {
+        final dbs = await OdooService.instance.getDatabaseList(url);
+        if (dbs.isNotEmpty) {
+          db = dbs.first;
+          setState(() => _dbController.text = db);
+          debugPrint("Auto-detected DB: $db");
+        } else {
+          throw OdooServiceException(
+            "No se pudo detectar la base de datos automáticamente. Por favor, ingrésela en ajustes avanzados.",
+          );
+        }
+      }
+
+      // Guardar credenciales para futuro uso (incluyendo la DB detectada)
+      await _saveCredentials();
 
       debugPrint("LOGIN ATTEMPT: URL=$url, DB=$db, User=$user");
 
@@ -191,15 +204,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               controller: _urlController,
                               decoration: const InputDecoration(
                                 hintText: "https://odoo.example.com",
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildLabel("Database"),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _dbController,
-                              decoration: const InputDecoration(
-                                hintText: "my_database",
                               ),
                             ),
                             const SizedBox(height: 20),

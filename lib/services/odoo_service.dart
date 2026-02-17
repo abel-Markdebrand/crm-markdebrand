@@ -141,6 +141,47 @@ class OdooService {
     }
   }
 
+  /// Fetches available databases from the Odoo server
+  Future<List<String>> getDatabaseList(String url) async {
+    final endpoint = url.endsWith('/') ? "${url}jsonrpc" : "$url/jsonrpc";
+    debugPrint("OdooService: Fetching databases from $endpoint");
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(endpoint),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "jsonrpc": "2.0",
+              "method": "call",
+              "params": {"service": "db", "method": "list", "args": []},
+              "id": DateTime.now().millisecondsSinceEpoch,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['result'] is List) {
+          final dbs = List<String>.from(decoded['result']);
+          debugPrint("OdooService: Databases found: $dbs");
+          return dbs;
+        } else if (decoded['error'] != null) {
+          debugPrint(
+            "OdooService: Error listing databases: ${decoded['error']}",
+          );
+        }
+      } else {
+        debugPrint(
+          "OdooService: Database list request failed with status ${response.statusCode}",
+        );
+      }
+    } catch (e) {
+      debugPrint("OdooService: Exception fetching databases: $e");
+    }
+    return [];
+  }
+
   /// Robust JSON-RPC 2.0 Version Check
   Future<Map<String, dynamic>?> getPrismaVersion() async {
     final String url = "$_whatsappUrl/jsonrpc";
