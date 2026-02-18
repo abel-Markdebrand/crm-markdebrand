@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screens/setup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'services/odoo_service.dart';
@@ -25,7 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _showAdvanced = false;
 
   @override
   void initState() {
@@ -67,27 +67,18 @@ class _LoginScreenState extends State<LoginScreen> {
       final url = _urlController.text.trim();
       OdooService.instance.init(url);
 
-      // Autenticación robusta con detección automática de DB
-      String db = _dbController.text.trim();
+      // Autenticación simple: Usar lo que el usuario escribió
+      final db = _dbController.text.trim();
       final user = _userController.text.trim();
       final pass = _passwordController.text.trim();
 
-      // Si no hay DB y no es el servidor de Prisma (que tiene DB fija o manejada internamente),
-      // intentamos detectarla.
-      if (db.isEmpty && !url.contains("app.prismahexagon.com")) {
-        final dbs = await OdooService.instance.getDatabaseList(url);
-        if (dbs.isNotEmpty) {
-          db = dbs.first;
-          setState(() => _dbController.text = db);
-          debugPrint("Auto-detected DB: $db");
-        } else {
-          throw OdooServiceException(
-            "No se pudo detectar la base de datos automáticamente. Por favor, ingrésela en ajustes avanzados.",
-          );
-        }
+      if (db.isEmpty) {
+        throw OdooServiceException(
+          "Por favor ingresa el nombre de la base de datos.",
+        );
       }
 
-      // Guardar credenciales para futuro uso (incluyendo la DB detectada)
+      // Guardar credenciales para futuro uso
       await _saveCredentials();
 
       debugPrint("LOGIN ATTEMPT: URL=$url, DB=$db, User=$user");
@@ -191,64 +182,46 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 40),
 
-                      const SizedBox(height: 32),
+                      // Removed Server URL and Database fields
+                      const SizedBox(height: 32), // Spacing before user/pass
 
-                      // FORM
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_showAdvanced) ...[
-                            _buildLabel("Server URL"),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _urlController,
-                              decoration: const InputDecoration(
-                                hintText: "https://odoo.example.com",
-                              ),
+                      _buildLabel("Email / Username"),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _userController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          hintText: "user@example.com",
+                          prefixIcon: Icon(Icons.person_outline, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildLabel("Password"),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _login(),
+                        decoration: InputDecoration(
+                          hintText: "••••••••",
+                          prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              size: 20,
                             ),
-                            const SizedBox(height: 20),
-                          ],
-                          _buildLabel("Email / Username"),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _userController,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              hintText: "user@example.com",
-                              prefixIcon: Icon(Icons.person_outline, size: 20),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          _buildLabel("Password"),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _login(),
-                            decoration: InputDecoration(
-                              hintText: "••••••••",
-                              prefixIcon: const Icon(
-                                Icons.lock_outline,
-                                size: 20,
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  size: 20,
-                                ),
-                                onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                              ),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
                             ),
                           ),
-                        ],
+                        ),
                       ),
 
+                      // Column children continue...
                       const SizedBox(height: 32),
 
                       // BUTTON
@@ -284,25 +257,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 24),
 
-                      // ADVANCED TOGGLE
-                      TextButton.icon(
-                        onPressed: () =>
-                            setState(() => _showAdvanced = !_showAdvanced),
-                        icon: Icon(
-                          _showAdvanced
-                              ? Icons.settings
-                              : Icons.settings_outlined,
-                          size: 16,
-                        ),
-                        label: Text(
-                          _showAdvanced
-                              ? "Hide Advanced Settings"
-                              : "Advanced Settings",
-                          style: const TextStyle(fontSize: 13),
+                      // RESET CONFIG LINK (Optional, but good for safety)
+                      TextButton(
+                        onPressed: () async {
+                          // Navigate back to Setup
+                          await Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const SetupScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          "Cambiar Servidor / Resetear Configuración",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
                       // LEGAL LINKS
                       Row(

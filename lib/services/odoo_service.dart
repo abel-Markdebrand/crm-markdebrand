@@ -158,7 +158,7 @@ class OdooService {
               "id": DateTime.now().millisecondsSinceEpoch,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -1417,18 +1417,26 @@ class OdooService {
 
     // --- STRATEGY: DYNAMIC FALLBACK (IP-Based / Dev) ---
     // If domain/wsUrl are empty (either RPC failed OR provider not set), infer.
-    if ((domain.isEmpty || wsUrl.isEmpty) && _baseUrl != null) {
-      debugPrint("⚠️ OdooService: Config missing/incomplete. Inferring...");
+    if ((domain.isEmpty || wsUrl.isEmpty) || sipLogin.isEmpty) {
+      debugPrint(
+        "⚠️ OdooService: Config missing/incomplete. Using Hardcoded Asterisk Config.",
+      );
       try {
-        final uri = Uri.parse(_baseUrl!);
-        final host = uri.host;
+        // HARDCODED CONFIG FOR PRODUCTION ASTERISK SERVER (147.93.40.102)
+        // Port 8071 is the specific port for WS (non-secure) or WSS (secure) on this server.
+        // We use WS to avoid certificate issues if no valid cert is present.
 
-        if (domain.isEmpty) domain = host;
+        domain = "147.93.40.102"; // Asterisk IP
+        wsUrl =
+            "wss://147.93.40.102:8089/ws"; // Correct WebSocket Endpoint (Standard WSS)
 
-        // STRICT PRODUCTION POLICY: ALWAYS FORCE SECURE WSS
-        // No checks for scheme or host. Always assume Production/VoIP server.
-        wsUrl = "wss://$host:8089/ws";
-        debugPrint("🔧 OdooService: Inferred -> Domain: $domain, WS: $wsUrl");
+        // Manual Credentials from User
+        sipLogin = "101";
+        sipPassword = "abel1405";
+
+        debugPrint(
+          "🔧 OdooService: Forced Config -> Domain: $domain, WS: $wsUrl, User: $sipLogin",
+        );
       } catch (e) {
         debugPrint("❌ OdooService: Inference failed: $e");
       }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:mvp_odoo/services/crm_service.dart';
+import '../services/crm_service.dart';
 import '../models/crm_models.dart';
-import 'package:mvp_odoo/screens/leads_creation_screen.dart';
-import 'package:mvp_odoo/screens/quote_creation_screen.dart';
+import '../screens/leads_creation_screen.dart';
+import '../screens/quote_creation_screen.dart';
 import '../services/voip_service.dart';
 import '../services/call_manager.dart';
 
@@ -46,28 +46,55 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Detalle de Oportunidad'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1E293B),
+        elevation: 0,
         actions: [
           FutureBuilder<CrmLead?>(
             future: _leadFuture,
             builder: (context, snapshot) {
               if (snapshot.hasData) {
                 final lead = snapshot.data!;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _editLead(lead),
-                    ),
-                  ],
+                return IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editLead(lead),
                 );
               }
               return const SizedBox();
             },
           ),
         ],
+      ),
+      floatingActionButton: FutureBuilder<CrmLead?>(
+        future: _leadFuture,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox();
+          final lead = snapshot.data!;
+          return FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => QuoteCreationScreen(
+                    partnerName: lead.partnerName ?? 'Unknown',
+                    partnerId: lead.partnerId,
+                    opportunityId: lead.id,
+                  ),
+                ),
+              );
+            },
+            backgroundColor: const Color(0xFF0D59F2),
+            foregroundColor: Colors.white,
+            label: const Text(
+              "COTIZAR",
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+            ),
+            icon: const Icon(Icons.receipt_long),
+          );
+        },
       ),
       body: FutureBuilder<CrmLead?>(
         future: _leadFuture,
@@ -82,341 +109,264 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
 
           final lead = snapshot.data!;
           return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- HEADER CARD ---
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF0D59F2,
-                                ).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.star,
-                                color: Color(0xFF0D59F2),
-                                size: 32,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    lead.name,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.business,
-                                        size: 16,
-                                        color: Color(0xFF64748B),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          lead.partnerName ?? 'Sin Cliente',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Color(0xFF64748B),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  if (lead.function != null &&
-                                      lead.function!.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        lead.function!,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            // Priority Badge
-                            if (lead.priority != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.star,
-                                      size: 12,
-                                      color: Colors.amber,
-                                    ),
-                                    Text(
-                                      " ${lead.priority}",
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.amber,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                        const Divider(height: 32),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildStatItem(
-                              "Revenue",
-                              "\$${lead.expectedRevenue.toStringAsFixed(2)}",
-                              Icons.attach_money,
-                              Colors.green,
-                            ),
-                            _buildStatItem(
-                              "Probability",
-                              "${lead.probability}%",
-                              Icons.donut_large,
-                              Colors.orange,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildHeaderCard(lead),
                   const SizedBox(height: 24),
 
-                  // --- CONTACT INFO ---
-                  const Text(
-                    "INFORMACIÓN DE CONTACTO",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF94A3B8),
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      children: [
+                  // --- MARKETING SECTION ---
+                  if (lead.campaignName != null ||
+                      lead.mediumName != null ||
+                      lead.sourceName != null) ...[
+                    _buildSectionHeader("MARKETING"),
+                    const SizedBox(height: 12),
+                    _buildInfoCard([
+                      if (lead.campaignName != null)
                         _buildDetailRow(
-                          Icons.email_outlined,
-                          "Email",
-                          lead.email ?? "N/A",
+                          Icons.campaign,
+                          "Campaña",
+                          lead.campaignName,
                         ),
-                        const SizedBox(height: 16),
+                      if (lead.mediumName != null)
                         _buildDetailRow(
-                          Icons.phone_outlined,
-                          "Teléfono",
-                          lead.phone ?? "N/A",
-                          suffix: _buildCallButton(
-                            lead.phone,
-                            isProminent: true,
+                          Icons.broadcast_on_home,
+                          "Medio",
+                          lead.mediumName,
+                        ),
+                      if (lead.sourceName != null)
+                        _buildDetailRow(
+                          Icons.source,
+                          "Fuente",
+                          lead.sourceName,
+                        ),
+                    ]),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // --- CONTACT SECTION ---
+                  _buildSectionHeader("INFORMACIÓN DE CONTACTO"),
+                  const SizedBox(height: 12),
+                  _buildInfoCard([
+                    _buildDetailRow(Icons.email_outlined, "Email", lead.email),
+                    _buildDetailRow(
+                      Icons.phone_outlined,
+                      "Teléfono",
+                      lead.phone,
+                      suffix: _buildCallButton(lead.phone, isProminent: true),
+                    ),
+                    _buildDetailRow(Icons.language, "Website", lead.website),
+                  ]),
+                  const SizedBox(height: 24),
+
+                  // --- ADDRESS SECTION ---
+                  _buildSectionHeader("DIRECCIÓN"),
+                  const SizedBox(height: 12),
+                  _buildInfoCard([
+                    _buildDetailRow(
+                      Icons.location_on_outlined,
+                      "Calle",
+                      lead.street,
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDetailRow(
+                            Icons.location_city,
+                            "Ciudad",
+                            lead.city,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildDetailRow(
-                          Icons.language,
-                          "Website",
-                          lead.website ?? "N/A",
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDetailRow(
+                            Icons.numbers,
+                            "C. Postal",
+                            lead.zip,
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    _buildDetailRow(
+                      Icons.flag_outlined,
+                      "País",
+                      lead.countryName,
+                    ),
+                  ]),
                   const SizedBox(height: 24),
 
-                  // --- ADDRESS INFO ---
-                  const Text(
-                    "DIRECCIÓN",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF94A3B8),
-                      letterSpacing: 1,
-                    ),
-                  ),
+                  // --- DESCRIPTION SECTION ---
+                  _buildSectionHeader("NOTAS INTERNAS"),
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildDetailRow(
-                          Icons.location_on_outlined,
-                          "Calle",
-                          lead.street ?? "N/A",
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildDetailRow(
-                                Icons.location_city,
-                                "Ciudad",
-                                lead.city ?? "N/A",
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildDetailRow(
-                                Icons.numbers,
-                                "C. Postal",
-                                lead.zip ?? "N/A",
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildDetailRow(
-                          Icons.flag_outlined,
-                          "País",
-                          lead.countryName ?? "N/A",
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // --- NOTES SECTION ---
-                  const Text(
-                    "NOTAS INTERNAS",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF94A3B8),
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: _buildDetailRow(
-                      Icons.notes,
+                  _buildInfoCard([
+                    _buildDetailRow(
+                      Icons.description_outlined,
                       "Descripción",
                       _stripHtml(lead.description),
                       isMultiLine: true,
                     ),
-                  ),
-
-                  const Divider(height: 32),
-
-                  // --- ACTIONS ---
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0D59F2), Color(0xFF0A46C2)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFF0D59F2,
-                            ).withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => QuoteCreationScreen(
-                                partnerName: lead.partnerName ?? 'Unknown',
-                                partnerId: lead.partnerId,
-                                opportunityId: lead.id,
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.receipt_long, size: 24),
-                        label: const Text(
-                          "COTIZACIÓN",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // ADD PADDING TO AVOID BOTTOM OVERFLOW
-                  const SizedBox(height: 50),
+                  ]),
+                  const SizedBox(height: 100), // Space for FAB
                 ],
               ),
             ),
           );
         },
       ),
+    );
+  }
+
+  // --- WIDGET BUILDERS ---
+
+  Widget _buildHeaderCard(CrmLead lead) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D59F2).withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D59F2).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.business_center_outlined,
+                  color: Color(0xFF0D59F2),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lead.name,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      lead.partnerName ?? 'Sin Cliente',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (lead.priority != null) _buildPriorityBadge(lead.priority!),
+            ],
+          ),
+          if (lead.niche != null) ...[
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D59F2).withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: const Color(0xFF0D59F2).withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Text(
+                  lead.niche!,
+                  style: const TextStyle(
+                    color: Color(0xFF0D59F2),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const Divider(height: 40, thickness: 1, color: Color(0xFFF1F5F9)),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  "Ingresos",
+                  "\$${lead.expectedRevenue.toStringAsFixed(2)}",
+                  Icons.attach_money_rounded,
+                  Colors.teal,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatItem(
+                  "Probabilidad",
+                  "${lead.probability.toInt()}%",
+                  Icons.analytics_outlined,
+                  Colors.orange,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF94A3B8),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(List<Widget> children) {
+    // Filter out null or empty rows if any
+    final validChildren = children.where((w) => w is! SizedBox).toList();
+
+    // Add spacing between rows
+    List<Widget> spacedChildren = [];
+    for (int i = 0; i < validChildren.length; i++) {
+      spacedChildren.add(validChildren[i]);
+      if (i < validChildren.length - 1) {
+        spacedChildren.add(const SizedBox(height: 16));
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(children: spacedChildren),
     );
   }
 
@@ -427,46 +377,54 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
               Text(
-                label.toUpperCase(),
+                label,
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
                   color: color,
-                ),
-              ),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E293B),
+            ),
           ),
         ],
       ),
     );
   }
 
-  String _stripHtml(String? htmlString) {
-    if (htmlString == null || htmlString.isEmpty) return "Sin descripción";
-    final document = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: true);
-    var parsed = htmlString.replaceAll(document, '');
-    return parsed.trim().isEmpty ? "Sin descripción" : parsed.trim();
+  Widget _buildPriorityBadge(String priority) {
+    int stars = int.tryParse(priority) ?? 0;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) {
+        return Icon(
+          index < stars ? Icons.star : Icons.star_border,
+          size: 18,
+          color: index < stars ? Colors.amber : Colors.grey.shade300,
+        );
+      }),
+    );
   }
 
   Widget _buildDetailRow(
@@ -491,7 +449,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
           ),
           child: Icon(icon, color: const Color(0xFF64748B), size: 18),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,7 +457,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Color(0xFF94A3B8),
                   fontWeight: FontWeight.bold,
                 ),
@@ -510,7 +468,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                 style: const TextStyle(
                   fontSize: 15,
                   color: Color(0xFF1E293B),
-                  height: 1.4,
+                  height: 1.3,
                 ),
               ),
             ],
@@ -530,55 +488,6 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
         final state = VoipService.instance.callManager.state;
         final isRegistered = state == AppCallState.registered;
 
-        if (isProminent) {
-          return InkWell(
-            onTap: isRegistered
-                ? () {
-                    VoipService.instance.makeCall(phone);
-                  }
-                : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("VoIP no registrado")),
-                    );
-                  },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isRegistered
-                    ? const Color(0xFF22C55E).withValues(alpha: 0.1)
-                    : Colors.grey.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isRegistered ? const Color(0xFF22C55E) : Colors.grey,
-                  width: 1.5,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.phone,
-                    color: isRegistered ? const Color(0xFF15803D) : Colors.grey,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "LLAMAR",
-                    style: TextStyle(
-                      color: isRegistered
-                          ? const Color(0xFF15803D)
-                          : Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
         return IconButton(
           onPressed: isRegistered
               ? () {
@@ -591,14 +500,30 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                     ),
                   );
                 }
-              : null,
+              : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("VoIP no registrado")),
+                  );
+                },
           icon: Icon(
-            Icons.phone_forwarded,
+            Icons.phone_outlined,
             color: isRegistered ? Colors.green : Colors.grey,
           ),
-          tooltip: isRegistered ? "Llamar" : "VoIP no disponible",
+          style: IconButton.styleFrom(
+            backgroundColor: isRegistered
+                ? Colors.green.withValues(alpha: 0.1)
+                : Colors.grey.withValues(alpha: 0.1),
+            padding: const EdgeInsets.all(8),
+          ),
         );
       },
     );
+  }
+
+  String _stripHtml(String? htmlString) {
+    if (htmlString == null || htmlString.isEmpty) return "Sin descripción";
+    final document = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: true);
+    var parsed = htmlString.replaceAll(document, '');
+    return parsed.trim().isEmpty ? "Sin descripción" : parsed.trim();
   }
 }

@@ -4,12 +4,45 @@ import 'login_screen.dart';
 import 'widgets/voip/call_overlay.dart';
 import 'services/voip_service.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/setup_screen.dart';
+
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isSetupComplete = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSetupStatus();
+  }
+
+  Future<void> _checkSetupStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Check if both URL/DB exist AND explict flag (to be safe)
+    final url = prefs.getString('odoo_url');
+    final db = prefs.getString('odoo_db');
+    final isComplete = prefs.getBool('is_setup_completed') ?? false;
+
+    setState(() {
+      _isSetupComplete =
+          isComplete &&
+          (url != null && url.isNotEmpty) &&
+          (db != null && db.isNotEmpty);
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +52,14 @@ class MyApp extends StatelessWidget {
     final textTheme = GoogleFonts.montserratTextTheme(
       Theme.of(context).textTheme,
     );
+
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator(color: Colors.black)),
+        ),
+      );
+    }
 
     return MaterialApp(
       title: 'Markdebrand CRM',
@@ -134,7 +175,7 @@ class MyApp extends StatelessWidget {
 
         return CallOverlay(child: child!);
       },
-      home: const LoginScreen(),
+      home: _isSetupComplete ? const LoginScreen() : const SetupScreen(),
     );
   }
 }

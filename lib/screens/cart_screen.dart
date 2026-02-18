@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/crm_service.dart';
 import '../services/product_service.dart';
-import '../widgets/product_search_dialog.dart';
+// import '../widgets/product_search_dialog.dart'; // Removed
 import '../sales_form_screen.dart';
+import '../widgets/searchable_dropdown.dart';
 
 class CartScreen extends StatefulWidget {
   final int partnerId;
@@ -20,28 +21,32 @@ class _CartScreenState extends State<CartScreen> {
 
   List<Map<String, dynamic>> _selectedProducts = [];
   bool _isProcessing = false;
+  Map<String, dynamic>? _selectedProduct; // For dropdown state
 
-  void _addProduct() async {
-    final selected = await showDialog<Map<String, dynamic>>(
+  void _onProductSelected(Map<String, dynamic>? selected) async {
+    if (selected == null) return;
+
+    // Reset dropdown selection immediately or keep it?
+    // Usually reset to allow adding another.
+    // But we need to wait for Quantity dialog.
+
+    setState(() => _selectedProduct = selected);
+
+    final qtyStr = await showDialog<String>(
       context: context,
-      builder: (context) =>
-          ProductSearchDialog(productService: _productService),
+      builder: (ctx) => _QtyDialog(),
     );
 
-    if (selected != null) {
-      final qtyStr = await showDialog<String>(
-        context: context,
-        builder: (ctx) => _QtyDialog(),
-      );
-
-      if (qtyStr != null) {
-        final qty = double.tryParse(qtyStr) ?? 1.0;
-        setState(() {
-          final p = Map<String, dynamic>.from(selected);
-          p['qty'] = qty;
-          _selectedProducts.add(p);
-        });
-      }
+    if (qtyStr != null) {
+      final qty = double.tryParse(qtyStr) ?? 1.0;
+      setState(() {
+        final p = Map<String, dynamic>.from(selected);
+        p['qty'] = qty;
+        _selectedProducts.add(p);
+        _selectedProduct = null; // Clear dropdown after adding
+      });
+    } else {
+      setState(() => _selectedProduct = null); // Clear if cancelled
     }
   }
 
@@ -102,6 +107,25 @@ class _CartScreenState extends State<CartScreen> {
       appBar: AppBar(title: const Text('Productos a Facturar')),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SearchableDropdown<Map<String, dynamic>>(
+              label: "Agregar Producto",
+              value: _selectedProduct,
+              asyncItems: (query) async {
+                try {
+                  final res = await _productService.searchProducts(query);
+                  return res.cast<Map<String, dynamic>>();
+                } catch (e) {
+                  return [];
+                }
+              },
+              itemLabel: (item) => "${item['name']} (\$${item['list_price']})",
+              onChanged: _onProductSelected,
+              hint: "Buscar y agregar producto...",
+              icon: Icons.add_shopping_cart,
+            ),
+          ),
           Expanded(
             child: _selectedProducts.isEmpty
                 ? Center(
@@ -145,10 +169,10 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addProduct,
-        child: const Icon(Icons.add),
-      ),
+      // floatingActionButton: FloatingActionButton( // Removed
+      //   onPressed: _addProduct,
+      //   child: const Icon(Icons.add),
+      // ),
     );
   }
 }

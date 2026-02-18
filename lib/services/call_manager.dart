@@ -103,7 +103,7 @@ class CallManager extends ChangeNotifier implements SipUaHelperListener {
     final user = _config!.sipLogin;
 
     final settings = UaSettings()
-      ..uri = 'sip:$user@$domain'
+      ..uri = 'sip:$user@$domain;transport=ws'
       ..authorizationUser = user
       ..password = _config!.sipPassword
       ..displayName = user
@@ -114,10 +114,8 @@ class CallManager extends ChangeNotifier implements SipUaHelperListener {
       // 📞 MEDIA
       ..dtmfMode = DtmfMode.RFC2833
       ..userAgent = 'Flutter SIP Client'
-      // ❄️ ICE
-      ..iceServers = [
-        {'url': 'stun:stun.l.google.com:19302'},
-      ];
+      // ❄️ ICE (DISABLED TEMPORARILY TO FIX 1006)
+      ..iceServers = [];
 
     // 🔐 WebSocket settings
     settings.webSocketSettings.allowBadCertificate = true;
@@ -126,6 +124,8 @@ class CallManager extends ChangeNotifier implements SipUaHelperListener {
     final originScheme = _config!.wsUrl.startsWith('wss') ? 'https' : 'http';
     settings.webSocketSettings.extraHeaders = {
       'Origin': '$originScheme://$cleanDomain',
+      'Allow':
+          'ACK, BYE, CANCEL, INVITE, MESSAGE, OPTIONS, REGISTER, REFER, NOTIFY, INFO, PUBLISH',
     };
 
     _settings = settings;

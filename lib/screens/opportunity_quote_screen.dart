@@ -3,7 +3,8 @@ import '../models/crm_models.dart';
 import '../services/crm_service.dart';
 import '../services/product_service.dart';
 import '../sales_form_screen.dart';
-import '../widgets/product_search_dialog.dart';
+// import '../widgets/product_search_dialog.dart'; // Removed
+import '../widgets/searchable_dropdown.dart';
 
 class OpportunityQuoteScreen extends StatefulWidget {
   final CrmLead lead;
@@ -20,6 +21,30 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
 
   bool _isProcessing = false;
   List<Map<String, dynamic>> _selectedProducts = [];
+  Map<String, dynamic>? _selectedProduct; // For searchable dropdown state
+
+  // --- Actions ---
+  void _onProductSelected(Map<String, dynamic>? selected) async {
+    if (selected == null) return;
+    setState(() => _selectedProduct = selected);
+
+    final qtyStr = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _QtyDialog(),
+    );
+
+    if (qtyStr != null) {
+      final qty = double.tryParse(qtyStr) ?? 1.0;
+      setState(() {
+        final p = Map<String, dynamic>.from(selected);
+        p['qty'] = qty;
+        _selectedProducts.add(p);
+        _selectedProduct = null;
+      });
+    } else {
+      setState(() => _selectedProduct = null);
+    }
+  }
 
   // --- Start Hot Sale (Instant Sale) ---
   Future<void> _startHotSale() async {
@@ -75,31 +100,6 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
     }
   }
 
-  void _addProduct() async {
-    final selected = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) =>
-          ProductSearchDialog(productService: _productService),
-    );
-
-    if (selected != null) {
-      // Pedir cantidad (Simple dialog)
-      final qtyStr = await showDialog<String>(
-        context: context,
-        builder: (ctx) => _QtyDialog(),
-      );
-
-      if (qtyStr != null) {
-        final qty = double.tryParse(qtyStr) ?? 1.0;
-        setState(() {
-          final p = Map<String, dynamic>.from(selected);
-          p['qty'] = qty;
-          _selectedProducts.add(p);
-        });
-      }
-    }
-  }
-
   void _removeProduct(int index) {
     setState(() {
       _selectedProducts.removeAt(index);
@@ -126,24 +126,28 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
             const Divider(),
 
             // Product Section Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Productos a Facturar",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                TextButton.icon(
-                  onPressed: _addProduct,
-                  icon: const Icon(Icons.add),
-                  label: const Text("AGREGAR"),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.blueAccent,
-                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
+            Text(
+              "Productos a Facturar",
+              style: Theme.of(context).textTheme.titleMedium,
             ),
+            const SizedBox(height: 10),
+            SearchableDropdown<Map<String, dynamic>>(
+              label: "Agregar Producto",
+              value: _selectedProduct,
+              asyncItems: (query) async {
+                try {
+                  final res = await _productService.searchProducts(query);
+                  return res.cast<Map<String, dynamic>>();
+                } catch (e) {
+                  return [];
+                }
+              },
+              itemLabel: (item) => "${item['name']} (\$${item['list_price']})",
+              onChanged: _onProductSelected,
+              hint: "Buscar y agregar producto...",
+              icon: Icons.add_shopping_cart,
+            ),
+            const SizedBox(height: 10),
 
             // Product List
             Expanded(

@@ -34,6 +34,15 @@ class CrmLead {
   final String? website;
   final String? priority;
   final List<String> tags;
+  // Marketing
+  final int? campaignId;
+  final String? campaignName;
+  final int? mediumId;
+  final String? mediumName;
+  final int? sourceId;
+  final String? sourceName;
+  // Niches (Custom)
+  final String? niche;
 
   CrmLead({
     required this.id,
@@ -52,7 +61,15 @@ class CrmLead {
     this.function,
     this.website,
     this.priority,
+
     this.tags = const [],
+    this.campaignId,
+    this.campaignName,
+    this.mediumId,
+    this.mediumName,
+    this.sourceId,
+    this.sourceName,
+    this.niche,
   });
 
   factory CrmLead.fromJson(Map<String, dynamic> json) {
@@ -103,6 +120,27 @@ class CrmLead {
       function: OdooUtils.safeString(json['function']),
       website: OdooUtils.safeString(json['website']),
       priority: OdooUtils.safeString(json['priority']),
+      tags:
+          [], // Parsing tags is complex if they come as IDs. Leaving empty for now or implementing later.
+      // Marketing Parsing (Many2one usually)
+      campaignId: json['campaign_id'] is List
+          ? json['campaign_id'][0]
+          : (json['campaign_id'] is int ? json['campaign_id'] : null),
+      campaignName: json['campaign_id'] is List ? json['campaign_id'][1] : null,
+
+      mediumId: json['medium_id'] is List
+          ? json['medium_id'][0]
+          : (json['medium_id'] is int ? json['medium_id'] : null),
+      mediumName: json['medium_id'] is List ? json['medium_id'][1] : null,
+
+      sourceId: json['source_id'] is List
+          ? json['source_id'][0]
+          : (json['source_id'] is int ? json['source_id'] : null),
+      sourceName: json['source_id'] is List ? json['source_id'][1] : null,
+
+      // Assuming 'x_niche' or similar. Using 'function' as a fallback if not found or just a placeholder name
+      // The user called it 'Niches', keys should be checked. For now we will try to read 'x_niche' if it exists, else null.
+      niche: OdooUtils.safeString(json['x_niche'] ?? json['function']),
     );
   }
 }
