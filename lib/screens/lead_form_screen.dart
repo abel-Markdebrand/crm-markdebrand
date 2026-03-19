@@ -148,12 +148,15 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
 
     // Custom Fields loading
     _selectedNiche = l?.niche;
-    if (l?.campaignName != null && _campaigns.contains(l!.campaignName))
+    if (l?.campaignName != null && _campaigns.contains(l!.campaignName)) {
       _selectedCampaignKey = l.campaignName!;
-    if (l?.mediumName != null && _mediums.contains(l!.mediumName))
+    }
+    if (l?.mediumName != null && _mediums.contains(l!.mediumName)) {
       _selectedMediumKey = l.mediumName!;
-    if (l?.sourceName != null && _sources.contains(l!.sourceName))
+    }
+    if (l?.sourceName != null && _sources.contains(l!.sourceName)) {
       _selectedSourceKey = l.sourceName!;
+    }
     // Tags logic: simplified to first tag found or null
     if (l != null && l.tags.isNotEmpty) {
       for (var t in l.tags) {
@@ -218,9 +221,11 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No se pudo abrir el marcador")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No se pudo abrir el marcador")),
+        );
+      }
     }
   }
 
@@ -230,6 +235,37 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
     setState(() => _isSaving = true);
 
     try {
+      int? finalPartnerId;
+      if (_selectedPartner != null) {
+        finalPartnerId = _selectedPartner!['id'];
+      } else if (_contactNameController.text.isNotEmpty) {
+        try {
+          // Auto-create partner to ensure quotations can be generated without re-typing
+          finalPartnerId = await OdooService.instance.callKw(
+            model: 'res.partner',
+            method: 'create',
+            args: [
+              {
+                'name': _contactNameController.text,
+                'email': _emailController.text,
+                'phone': _phoneController.text,
+                'customer_rank': 1,
+              },
+            ],
+          );
+        } catch (e) {
+          debugPrint("Failed to auto-create partner: $e");
+        }
+      }
+
+      final descriptionLines = [
+        _notesController.text,
+        if (_selectedNiche != null) "Niche: $_selectedNiche",
+        if (_selectedCampaignKey != null) "Campaign: $_selectedCampaignKey",
+        if (_selectedMediumKey != null) "Medium: $_selectedMediumKey",
+        if (_selectedSourceKey != null) "Source: $_selectedSourceKey",
+      ];
+
       final vals = {
         'name': _selectedOpportunityName,
         'type': 'opportunity',
@@ -237,38 +273,16 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
         // 'probability': _probability, // Read-only / Automatic
         'email_from': _emailController.text,
         'phone': _phoneController.text,
-        'description': _notesController.text,
+        'description': descriptionLines.join("\n"),
         // 'priority': '1', // Default?
 
-        // Custom mappings - Need to check if we send IDs or Names.
-        // For standard Odoo, standard fields expect IDs.
-        // For this specific request where options are hardcoded strings,
-        // we might need to send strings to 'x_...' fields or find IDs.
-        // Assuming we send strings to 'name' fields or custom x_... fields if configured.
-        // BUT, standard Odoo fields like campaign_id are IDs.
-        // Without a lookup, this might fail if we send strings to Many2one.
-        // User said: "todo ezto ezta en el proyecto". Maybe they are Selection fields?
-        // Let's try sending as 'campaign_id': ID if we had it, but we don't.
-        // SAFE BET: Send them as context or assume they are Selection fields on the Odoo side?
-        // OR: Perform a search before save?
-        // Given complexity, let's assume we just save the 'name' and maybe custom fields.
-        // IMPORTANT: The user mentioned "Property: Sales Team... Sales Person".
-        // Use defaults:
+        // User defaults
         'user_id': OdooService.instance.currentUserId,
-        'team_id':
-            1, // 'Sales' usually ID 1. To be safe we should fetch, but hardcoding for MVP request.
+        'team_id': 1,
 
-        if (_selectedStageId != null) 'stage_id': _selectedStageId,
-        if (_selectedPartner != null) 'partner_id': _selectedPartner!['id'],
-
-        // Extended Fields
-        if (_selectedNiche != null)
-          'x_niche': _selectedNiche, // Custom field assumption
-        // If these are M2O, this will fail. If Selection, it works.
-        // We will try sending to likely custom fields or basic fields if string allowed.
-        // 'campaign_id': _selectedCampaignKey, // Likely needs ID
-
-        // Implementing strict user request for dropdowns first.
+        'stage_id': ?_selectedStageId,
+        'partner_id': ?finalPartnerId,
+        'x_niche': ?_selectedNiche,
       };
 
       if (widget.lead == null) {
@@ -522,8 +536,9 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
             _emailController,
             inputType: TextInputType.emailAddress,
             validator: (v) {
-              if (v != null && v.isNotEmpty && !v.contains('@'))
+              if (v != null && v.isNotEmpty && !v.contains('@')) {
                 return 'Email inválido';
+              }
               return null;
             },
           ),

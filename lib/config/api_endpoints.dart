@@ -53,7 +53,7 @@ class _SalesRoutes {
   final String create = 'create';
   final String write = 'write';
   final String confirm = 'action_confirm';
-  final String createInvoices = '_create_invoices';
+  final String createInvoices = 'create_invoices';
   // ..other specific methods
 }
 

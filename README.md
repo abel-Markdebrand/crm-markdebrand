@@ -1,16 +1,61 @@
-# mvp_odoo
+# Mardebran MVP Odoo
 
-A new Flutter project.
+Mardebran is a premium Flutter application designed to integrate seamlessly with Odoo ERP. It provides a modern, robust interface for managing CRM, HR, Recruitment, and VoIP Business communications.
+
+## Key Features
+
+- **Odoo Integration**: Full synchronization with Odoo via RPC, supporting both standard Odoo and custom Prisma servers.
+- **VoIP Service**: Integrated SIP/WebRTC softphone for business calls, featuring call history, dialpad, and background reconnection.
+- **CRM Module**: Manage leads, opportunities, and sales orders on the go.
+- **HR & Recruitment**: Handle employee profiles, attendance, and recruitment pipelines with ease.
+- **Modern UI/UX**: Premium design system using Slate color palettes, Nexa typography, and responsive layouts.
+- **Biometric Security**: Secure login using device biometrics (Fingerprint/FaceID).
+
+## Tech Stack
+
+- **Framework**: Flutter (Dart)
+- **State Management**: Provider / ChangeNotifier
+- **Networking**: `odoo_rpc`, `http`
+- **VoIP**: `sip_ua`, `flutter_webrtc`
+- **Persistence**: `shared_preferences`
+- **Utilities**: `path_provider`, `url_launcher`, `local_auth`
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
 
-A few resources to get you started if this is your first Flutter project:
+- Flutter SDK (latest stable version)
+- Android Studio / VS Code with Flutter extensions
+- An active Odoo instance
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Installation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   ```
+2. **Install dependencies**:
+   ```bash
+   flutter pub get
+   ```
+3. **Run the application**:
+   ```bash
+   flutter run
+   ```
+
+## Project Structure
+
+- `lib/main.dart`: App entry point and theme configuration.
+- `lib/services/`: Core business logic and external integrations (Odoo, VoIP, etc.).
+- `lib/models/`: Data models for CRM, HR, and Sales.
+- `lib/screens/`: UI implementation for different modules.
+- `lib/widgets/`: Reusable UI components.
+
+## Documentation
+
+- **Inline Documentation**: All core services and app logic are documented in English within the source code.
+- **Odoo Service**: See `lib/services/odoo_service.dart` for deep communication logic.
+- **VoIP Module**: See `lib/services/voip_service.dart` and `lib/services/call_manager.dart`.
+
+---
+Developed by **Markdebrand**.

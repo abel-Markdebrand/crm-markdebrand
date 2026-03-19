@@ -26,13 +26,34 @@ class LeadDetailScreen extends StatelessWidget {
               icon: Icon(Icons.arrow_back_ios, color: textMain, size: 20),
               onPressed: () => Navigator.pop(context),
             ),
-            title: Text(
-              "Lead Details",
-              style: TextStyle(
-                color: textMain,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.asset(
+                      'assets/image/logo_mdb.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Lead Details",
+                  style: TextStyle(
+                    color: textMain,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
             centerTitle: true,
             actions: [

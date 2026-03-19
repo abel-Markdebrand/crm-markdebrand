@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mvp_odoo/services/odoo_service.dart';
-import 'package:mvp_odoo/services/voip_service.dart';
-import 'package:mvp_odoo/services/call_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:mvp_odoo/screens/contact_form_screen.dart';
 
 class ContactsScreen extends StatefulWidget {
@@ -11,7 +10,11 @@ class ContactsScreen extends StatefulWidget {
   State<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen> {
+class _ContactsScreenState extends State<ContactsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final OdooService _odooService = OdooService.instance;
   List<dynamic> contacts = [];
   bool _isLoading = true;
@@ -48,13 +51,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final filteredContacts = contacts.where((c) {
       final name = (c['name'] is String ? c['name'] as String : "")
           .toLowerCase();
       final email = (c['email'] is String ? c['email'] as String : "")
           .toLowerCase();
+      final phone = (c['phone'] is String ? c['phone'] as String : "")
+          .toLowerCase();
       final query = _searchQuery.toLowerCase();
-      return name.contains(query) || email.contains(query);
+      return name.contains(query) ||
+          email.contains(query) ||
+          phone.contains(query);
     }).toList();
 
     return Scaffold(
@@ -102,16 +110,30 @@ class _ContactsScreenState extends State<ContactsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Contactos",
+                "Directorio",
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
+                  color: Color(0xFF0F172A),
                 ),
               ),
-              IconButton(
-                onPressed: _fetchContacts,
-                icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  "${contacts.length} Contactos",
+                  style: const TextStyle(
+                    color: Color(0xFF2563EB),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
               ),
             ],
           ),
@@ -121,15 +143,28 @@ class _ContactsScreenState extends State<ContactsScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.transparent),
             ),
             child: TextField(
-              onChanged: (val) => setState(() => _searchQuery = val),
               decoration: const InputDecoration(
-                hintText: "Buscar por nombre o email...",
-                prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8)),
+                hintText: "Buscar por nombre, correo o teléfono...",
+                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: Color(0xFF94A3B8),
+                  size: 20,
+                ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
               ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
             ),
           ),
         ],
@@ -177,7 +212,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               MaterialPageRoute(
                 builder: (context) => ContactFormScreen(partner: contact),
               ),
-            );
+            ).then((_) => _fetchContacts());
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -223,7 +258,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
+                          color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -231,7 +266,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
                         email,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF64748B),
+                          color: Colors
+                              .black54, // Still readable but clearly secondary
                         ),
                       ),
                       if (phone.isNotEmpty) ...[
@@ -276,38 +312,24 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   Widget _buildCallButton(String phone) {
-    return ListenableBuilder(
-      listenable: VoipService.instance.callManager,
-      builder: (context, _) {
-        final state = VoipService.instance.callManager.state;
-        final isRegistered = state == AppCallState.registered;
-        final color = isRegistered
-            ? const Color(0xFF22C55E)
-            : const Color(0xFF94A3B8);
-
-        return IconButton(
-          onPressed: isRegistered
-              ? () {
-                  VoipService.instance.makeCall(phone);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Llamando a $phone..."),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              : () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("VoIP no registrado")),
-                  );
-                },
-          icon: Icon(Icons.phone, color: color, size: 24),
-          style: IconButton.styleFrom(
-            backgroundColor: color.withValues(alpha: 0.1),
-            padding: const EdgeInsets.all(8),
-          ),
-        );
+    return IconButton(
+      onPressed: () async {
+        final Uri url = Uri.parse('tel:$phone');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("No se pudo iniciar la llamada")),
+            );
+          }
+        }
       },
+      icon: const Icon(Icons.phone, color: Color(0xFF22C55E), size: 24),
+      style: IconButton.styleFrom(
+        backgroundColor: const Color(0xFF22C55E).withValues(alpha: 0.1),
+        padding: const EdgeInsets.all(8),
+      ),
     );
   }
 

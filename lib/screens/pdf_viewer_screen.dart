@@ -30,8 +30,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () {
-              Share.shareXFiles([XFile(widget.path)], text: widget.title);
+            onPressed: () async {
+              // ignore: deprecated_member_use
+              await Share.shareXFiles([XFile(widget.path)], text: widget.title);
             },
           ),
         ],
@@ -48,9 +49,9 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
             defaultPage: 0,
             fitPolicy: FitPolicy.BOTH,
             preventLinkNavigation: false,
-            onRender: (_pages) {
+            onRender: (pages) {
               setState(() {
-                pages = _pages;
+                this.pages = pages;
                 isReady = true;
               });
             },

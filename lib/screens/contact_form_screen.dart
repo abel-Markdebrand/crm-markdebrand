@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart'; // Added
 import 'dart:io'; // Added
 import 'dart:convert'; // Added
 import '../services/odoo_service.dart';
-import '../services/voip_service.dart';
-import '../services/call_manager.dart'; // Added for AppCallState
 
 class ContactFormScreen extends StatefulWidget {
   final Map<String, dynamic>? partner; // If null, create mode.
@@ -56,7 +55,7 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
   final _buyerController = TextEditingController(); // Comprador
   final _purchasePaymentTermsController = TextEditingController();
   final _purchasePaymentMethodController = TextEditingController();
-  bool _receiptReminder = false; // Recordatorio de recibo
+
 
   // Información Fiscal
   final _fiscalPositionController = TextEditingController(); // Situación fiscal
@@ -80,8 +79,10 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
   String? _base64Image; // To send to Odoo
   final ImagePicker _picker = ImagePicker();
 
-  bool _isLoading = false;
+
   bool _isSaving = false;
+
+  int _currentStep = 1;
 
   @override
   void initState() {
@@ -96,13 +97,15 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
       _emailController.text = p['email'] is String ? p['email'] : '';
       _phoneController.text = p['phone'] is String ? p['phone'] : '';
       _streetController.text = p['street'] is String ? p['street'] : '';
+      _street2Controller.text = p['street2'] is String ? p['street2'] : '';
       _cityController.text = p['city'] is String ? p['city'] : '';
+      _stateController.text = p['state_id'] is List ? p['state_id'][1].toString() : '';
+      _zipController.text = p['zip'] is String ? p['zip'] : '';
+      _countryController.text = p['country_id'] is List ? p['country_id'][1].toString() : '';
+      _bankAccountController.text = p['bank_ids'] is List && (p['bank_ids'] as List).isNotEmpty ? 'Linked Account' : '';
+      _notesController.text = p['comment'] is String ? p['comment'] : '';
+      _isCompany = p['is_company'] == true;
 
-      // Attempt to load other fields if available in map, or leave empty
-      if (p['is_company'] == true) _isCompany = true;
-
-      // Load existing image if available
-      // Usually 'image_128' or 'image_1920' comes as base64 string
       if (p['image_1920'] is String && (p['image_1920'] as String).isNotEmpty) {
         _base64Image = p['image_1920'];
       }
@@ -149,7 +152,7 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 800, // Limit size for Odoo
+        maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
@@ -164,16 +167,18 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
     } catch (e) {
       debugPrint("Error picking image: $e");
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error picking image: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error picking image: $e")));
     }
   }
 
   Future<void> _save() async {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Por favor ingrese un nombre")));
+      return;
+    }
+
     setState(() => _isSaving = true);
 
-    // Prepare data
     final data = {
       'name': _nameController.text,
       'email': _emailController.text,
@@ -182,23 +187,11 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
       'street': _streetController.text,
       'street2': _street2Controller.text,
       'city': _cityController.text,
-      // 'state_id': ... would require ID lookup
-      // 'country_id': ... would require ID lookup
       'zip': _zipController.text,
       'vat': _vatController.text,
       'website': _websiteController.text,
       'comment': _notesController.text,
-      'parent_name':
-          _companyNameController.text, // Rough mapping for Company Name
-      // 'function': ... Job Position if needed
     };
-
-    // Add date only if not empty
-    if (_birthdayController.text.isNotEmpty) {
-      // Typically Odoo expects YYYY-MM-DD, assuming user enters correctly or we parse
-      // For this MVP, we just send it if backend accepts string, otherwise might need formatting
-      // data['birthdate'] = _birthdayController.text;
-    }
 
     if (_base64Image != null) {
       data['image_1920'] = _base64Image!;
@@ -206,775 +199,462 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
 
     try {
       if (widget.partner == null) {
-        // Create
         await _odooService.createContact(data);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Contact Created Successfully!")),
-          );
-          Navigator.pop(context, true); // Return true to refresh list
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("¡Contacto creado exitosamente!")));
+          Navigator.pop(context, true);
         }
       } else {
-        // Update
-        // Ensure we have an ID
         final id = widget.partner!['id'];
         if (id is int) {
           await _odooService.updateContact(id, data);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Contact Updated Successfully!")),
-            );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("¡Contacto actualizado exitosamente!")));
             Navigator.pop(context, true);
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error saving contact: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e"), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
+  void _nextStep() {
+    if (_currentStep < 3) {
+      setState(() => _currentStep++);
+    } else {
+      _save();
+    }
+  }
+
+  void _prevStep() {
+    if (_currentStep > 1) {
+      setState(() => _currentStep--);
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading)
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-
-    return DefaultTabController(
-      length: 5,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            widget.partner != null ? "Edit Contact" : "New Contact",
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildProgressBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: _buildStepContent(),
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: _save,
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text(
-                      "Save",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-            ),
+            _buildNavigationFooter(),
           ],
-          bottom: const TabBar(
-            isScrollable: true,
-            labelColor: Colors.black,
-            unselectedLabelColor: Color(0xFF64748B),
-            indicatorColor: Colors.black,
-            tabs: [
-              Tab(text: "Contactos"),
-              Tab(text: "Compra y venta"),
-              Tab(text: "Facturación"),
-              Tab(text: "Asignación de socios"),
-              Tab(text: "Notas"),
-            ],
-          ),
-        ),
-        body: SafeArea(
-          child: TabBarView(
-            children: [
-              _buildContactsTab(),
-              _buildSalesTab(),
-              _buildInvoicingTab(),
-              _buildPartnerAssignTab(),
-              _buildNotesTab(),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  // --- Header Card (Reused in all Tabs for consistency per user request) ---
-  Widget _buildHeaderCard() {
+  Widget _buildHeader() {
+    String title = "Contact Details";
+    if (_currentStep == 2) title = "Location";
+    if (_currentStep == 3) title = "Additional Info";
+
     return Container(
-      padding: const EdgeInsets.all(24), // Increased padding
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              // Image / Logo with Picker (Centered and Larger)
-              Center(
-                child: InkWell(
-                  onTap: _pickImage,
-                  child: Container(
-                    width: 120, // Larger size
-                    height: 120, // Larger size
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[200]!),
-                    ),
-                    child: _buildImageWidget(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Identity Fields (Stacked below)
-              // Radio Buttons: Person vs Company (Centered)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildRadio("Persona", false),
-                  const SizedBox(width: 24),
-                  _buildRadio("Compañía", true),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Name Field
-              TextField(
-                controller: _nameController,
-                textAlign: TextAlign
-                    .center, // Center text for better look in this layout
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
-                ),
-                decoration: const InputDecoration(
-                  hintText: "Nombre...",
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  isDense: true,
-                ),
-              ),
-
-              // Company Name (For Person)
-              if (!_isCompany)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: TextField(
-                    controller: _companyNameController,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF64748B),
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: "Nombre de la Compañía",
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
-                    ),
-                  ),
-                ),
-
-              const SizedBox(height: 16),
-              const Divider(),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          // Address & Contact Grid
-          // Contact Info Section
-          const SizedBox(height: 24),
-          _buildSectionHeader("INFORMACIÓN DE CONTACTO"),
-          const SizedBox(height: 16),
-          // Phone & Email (Always visible)
-          // Teléfono + Call Button row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: _buildLabeledField(
-                  "Teléfono",
-                  _phoneController,
-                  hint: "+1 234 567 890",
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Reactive Call Button
-              ListenableBuilder(
-                listenable: VoipService.instance.callManager,
-                builder: (context, child) {
-                  final isRegistered =
-                      VoipService.instance.callManager.state ==
-                      AppCallState.registered;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 2),
-                    child: IconButton.filled(
-                      style: IconButton.styleFrom(
-                        backgroundColor: isRegistered
-                            ? Colors.green
-                            : Colors.grey[400],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                      ),
-                      tooltip: isRegistered ? "Llamar" : "Conectando...",
-                      icon: isRegistered
-                          ? const Icon(Icons.phone, color: Colors.white)
-                          : const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            ),
-                      onPressed: isRegistered
-                          ? () {
-                              if (_phoneController.text.isNotEmpty) {
-                                VoipService.instance.makeCall(
-                                  _phoneController.text,
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      "Llamando a ${_phoneController.text}...",
-                                    ),
-                                    backgroundColor: Colors.green,
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Ingrese un número para llamar",
-                                    ),
-                                  ),
-                                );
-                              }
-                            }
-                          : null,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildLabeledField(
-            "Correo Electrónico",
-            _emailController,
-            hint: "ejemplo@correo.com",
-          ),
-          const SizedBox(height: 16),
-
-          // Website
-          _buildLabeledField(
-            "Sitio web",
-            _websiteController,
-            hint: "https://...",
-          ),
-          const SizedBox(height: 16),
-
-          // Conditional Fields
-          if (_isCompany)
-            _buildLabeledField(
-              "Identificación Fiscal",
-              _vatController,
-              hint: "RUC / VAT",
-            ),
-
-          if (!_isCompany)
-            _buildLabeledField(
-              "Fecha de Nacimiento",
-              _birthdayController,
-              hint: "DD/MM/AAAA",
-            ),
-
-          const SizedBox(height: 16),
-          // Etiqueta logic
-          _buildLabeledField(
-            "Etiquetas",
-            TextEditingController(),
-            hint: "B2B, VIP...",
-          ),
-
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 24),
-
-          // Address Section
-          _buildSectionHeader("DIRECCIÓN"),
-          const SizedBox(height: 16),
-          _buildTextField("Calle...", _streetController),
-          const SizedBox(height: 16),
-          _buildTextField("Calle 2...", _street2Controller),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildTextField("Ciudad", _cityController)),
-              const SizedBox(width: 12),
-              Expanded(child: _buildTextField("Estado", _stateController)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildTextField("CP", _zipController)),
-              const SizedBox(width: 12),
-              Expanded(child: _buildTextField("País", _countryController)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRadio(String label, bool value) {
-    return InkWell(
-      onTap: () => setState(() => _isCompany = value),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       child: Row(
         children: [
-          Icon(
-            _isCompany == value
-                ? Icons.radio_button_checked
-                : Icons.radio_button_off,
-            color: _isCompany == value ? Colors.black : Colors.grey,
-            size: 20,
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: _prevStep,
           ),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImageWidget() {
-    // If we have a local file, show it
-    if (_imageFile != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12), // Match parent radius
-        child: Image.file(
-          _imageFile!,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-        ),
-      );
-    }
-
-    // If we have base64 image from Odoo, try to decode it safely
-    if (_base64Image != null && _base64Image!.isNotEmpty) {
-      try {
-        final bytes = base64Decode(_base64Image!);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12), // Match parent radius
-          child: Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (context, error, stackTrace) {
-              // If image fails to load, show placeholder
-              return const Icon(
-                Icons.broken_image,
-                size: 30,
-                color: Colors.grey,
-              );
-            },
-          ),
-        );
-      } catch (e) {
-        debugPrint("Error decoding base64 image: $e");
-        // If decoding fails, show error icon
-        return const Icon(Icons.broken_image, size: 30, color: Colors.grey);
-      }
-    }
-
-    // No image, show placeholder
-    return const Icon(Icons.add_a_photo, size: 30, color: Colors.grey);
-  }
-
-  // --- Tab Contents ---
-
-  Widget _buildLayout(Widget content) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // _buildHeaderCard() removed from here to show only in Contact tab
-          content,
-          const SizedBox(height: 80), // Footer padding
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContactsTab() {
-    return _buildLayout(
-      Column(
-        children: [
-          _buildHeaderCard(), // Header Card moved here
-          const SizedBox(height: 24),
-          Center(
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(8),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
-              child: const Column(
-                children: [
-                  Text(
-                    "Agregar contacto",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
+            ),
+          ),
+          const SizedBox(width: 48), // Balancing for back button
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(3, (index) {
+          final step = index + 1;
+          final isActive = step == _currentStep;
+          final isCompleted = step < _currentStep;
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            height: 6,
+            width: isActive ? 24 : 6,
+            decoration: BoxDecoration(
+              color: isActive || isCompleted ? Colors.black : Colors.grey[300],
+              borderRadius: BorderRadius.circular(3),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case 1:
+        return _buildStep1();
+      case 2:
+        return _buildStep2();
+      case 3:
+        return _buildStep3();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildStep1() {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        // Image Picker Card
+        GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            width: 160,
+            height: 160,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: _imageFile != null || _base64Image != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: _imageFile != null
+                        ? Image.file(_imageFile!, fit: BoxFit.cover)
+                        : Image.memory(base64Decode(_base64Image!), fit: BoxFit.cover),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.add, size: 32, color: Colors.black),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Add Image",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                    ],
                   ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        // Name Input
+        TextField(
+          controller: _nameController,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            hintText: "Name...",
+            hintStyle: TextStyle(color: Colors.grey[300]),
+            border: InputBorder.none,
+          ),
+        ),
+        Text(
+          "sip:[new.contact@sip.linphone.org]",
+          style: GoogleFonts.inter(color: Colors.grey[400], fontSize: 12),
+        ),
+        const SizedBox(height: 32),
+        // Info Card
+        _buildInfoCard([
+          _buildStep1RadioFields(),
+          _buildPremiumField(Icons.phone_forwarded, "Phone", _phoneController, hint: "+1 234 567 890", icon: Icons.call),
+          _buildPremiumField(null, "Email", _emailController, hint: "example@mail.com", icon: Icons.mail),
+          _buildPremiumField(null, "Date of Birth", _birthdayController, hint: "DD/MM/YYYY...", icon: Icons.calendar_today),
+          _buildPremiumField(null, "Tags", TextEditingController(), hint: "B2B, VIP...", icon: Icons.label),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildStep1RadioFields() {
+    return Row(
+      children: [
+        const Icon(Icons.person, color: Colors.grey, size: 24),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "TYPE",
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildMiniRadio("Persona", !_isCompany, () => setState(() => _isCompany = false)),
+                  const SizedBox(width: 16),
+                  _buildMiniRadio("Company", _isCompany, () => setState(() => _isCompany = true)),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSalesTab() {
-    return _buildLayout(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // VENTAS Section
-          _buildSectionHeader("VENTAS"),
-          const SizedBox(height: 16),
-          _buildLabeledField("¿ Vendedor ?", _sellerController),
-          const SizedBox(height: 12),
-          _buildLabeledField(
-            "Condiciones de pago",
-            _salesPaymentTermsController,
-          ),
-          const SizedBox(height: 12),
-          _buildLabeledField("Método de pago", _salesPaymentMethodController),
-          const SizedBox(height: 12),
-          _buildLabeledField("Método de entrega ?", _deliveryMethodController),
-
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 32),
-
-          // COMPRA Section
-          _buildSectionHeader("COMPRA"),
-          const SizedBox(height: 16),
-          _buildLabeledField(
-            "Solicitar cotización de grupo ?",
-            TextEditingController(),
-            hint: "On Order",
-          ), // Mock logic
-          const SizedBox(height: 12),
-          _buildLabeledField("Comprador", _buyerController),
-          const SizedBox(height: 12),
-          _buildLabeledField(
-            "Condiciones de pago",
-            _purchasePaymentTermsController,
-          ),
-          const SizedBox(height: 12),
-          _buildLabeledField(
-            "Método de pago",
-            _purchasePaymentMethodController,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Text(
-                "¿Recordatorio de recibo ?",
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              Checkbox(
-                value: _receiptReminder,
-                onChanged: (v) => setState(() => _receiptReminder = v ?? false),
-              ),
             ],
           ),
+        ),
+      ],
+    );
+  }
 
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 32),
-
-          // INFO FISCAL Section
-          _buildSectionHeader("INFORMACIÓN FISCAL"),
-          const SizedBox(height: 16),
-          _buildLabeledField("¿ Situación fiscal ?", _fiscalPositionController),
-
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 32),
-
-          // VARIOS Section
-          _buildSectionHeader("VARIOS"),
-          const SizedBox(height: 16),
-          _buildLabeledField("¿ ID de la empresa ?", _companyIdController),
-          const SizedBox(height: 12),
-          _buildLabeledField("Referencia", _referenceController),
-          const SizedBox(height: 12),
-          _buildLabeledField("Sitio web ?", _websiteController),
-          const SizedBox(height: 12),
-          _buildLabeledField("Industria", _industryController),
+  Widget _buildMiniRadio(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: active ? Colors.black : Colors.grey[300]!, width: active ? 5 : 1),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
-  Widget _buildInvoicingTab() {
-    return _buildLayout(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // _buildHeaderCard(), // Removed as per previous logic
-          const SizedBox(height: 24),
-
-          // GENERAL Section
-          _buildSectionHeader("GENERAL"),
-          const SizedBox(height: 16),
-          _buildLabeledField(
-            "bancos",
-            _bankAccountController,
-            hint: "Ingrese bancos...",
-          ),
-
-          const SizedBox(height: 32),
-          const Divider(),
-          const SizedBox(height: 32),
-
-          // FACTURAS DE CLIENTES Section
-          _buildSectionHeader("FACTURAS DE CLIENTES"),
-          const SizedBox(height: 16),
-          _buildLabeledField(
-            "Envío de facturas",
-            _invoiceSendingController,
-            hint: "Facturación electrónica...",
-          ),
-          const SizedBox(height: 12),
-          _buildLabeledField(
-            "Formato de factura electrónica",
-            _invoiceFormatController,
-            hint: "Formato XML",
-          ),
-          const SizedBox(height: 12),
-          _buildLabeledField(
-            "Identificación de Peppol",
-            _peppolController,
-            hint: "Su punto final",
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPartnerAssignTab() {
-    return _buildLayout(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader("GEOLOCALIZACIÓN"),
-          const SizedBox(height: 24),
+  Widget _buildStep2() {
+    return Column(
+      children: [
+        _buildInfoCard([
+          _buildPremiumField(null, "Street", _streetController, hint: "Street address...", icon: Icons.home),
+          _buildPremiumField(null, "Street 2", _street2Controller, hint: "Apartment, suite, unit...", icon: Icons.domain),
+          _buildPremiumField(null, "City", _cityController, hint: "City...", icon: Icons.location_city),
           Row(
             children: [
-              const Text(
-                "Ubicación geográfica",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Expanded(child: _buildPremiumField(null, "State", _stateController, hint: "State...", icon: Icons.map)),
               const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Text("Años : "),
-                        Expanded(
-                          child: TextField(
-                            controller: _geoLatController,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 1),
-                    Row(
-                      children: [
-                        const Text("Largo: "),
-                        Expanded(
-                          child: TextField(
-                            controller: _geoLongController,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 1),
-                  ],
-                ),
-              ),
+              Expanded(child: _buildPremiumField(null, "Zip Code", _zipController, hint: "ZIP...", icon: Icons.location_on)),
             ],
           ),
-          const SizedBox(height: 16),
-          Center(
-            child: TextButton.icon(
-              onPressed: () {
-                // Mock calculation
-                setState(() {
-                  _geoLatController.text = "19.4326077";
-                  _geoLongController.text = "-99.133208";
-                });
-              },
-              icon: const Icon(Icons.settings, color: Colors.red, size: 16),
-              label: const Text(
-                "Calcular en función de la dirección",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
+          _buildPremiumField(null, "Country", _countryController, hint: "Country...", icon: Icons.public),
+        ]),
+        const SizedBox(height: 32),
+        // Map Preview
+        Container(
+          height: 140,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            image: const DecorationImage(
+              image: NetworkImage("https://lh3.googleusercontent.com/aida-public/AB6AXuDLVyeuzrS7gdPPM7FFQC-tUHij_lb1WOfGBgOoZmHeUSKVf226LfzbZIMe2quLdqp7u1AZa8c8cVT4cRRBOw0AL3igmeVDSO4kAuMD7icVh7sxP36SCi56DbYozuYXpzYwBpJFl015-FcjASl83DXuGA_gNWdPhgREzB0EhAnqb__xkmAl-Vv1-1XfLrTVs_MZ-X-UN1LNMdmeBGod6bxZQouCqzjfTkylcqCU2b3MTY65I58KG2twe6G0oMAmwqwKHovxrsw5kxk"),
+              fit: BoxFit.cover,
+              opacity: 0.2,
+            ),
+            color: Colors.grey[100],
+          ),
+          child: const Center(
+            child: Icon(Icons.my_location, size: 40, color: Colors.black),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep3() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Other Details",
+          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 24),
+        _buildInfoCard([
+          _buildPremiumFieldAlt("Sales - Payment Terms", _salesPaymentTermsController, hint: "Terms...", icon: Icons.calendar_today),
+          _buildPremiumFieldAlt("Purchase - Payment Terms", _purchasePaymentTermsController, hint: "Terms...", icon: Icons.calendar_month),
+          _buildPremiumFieldAlt("Bank Account", _bankAccountController, hint: "Bank...", icon: Icons.account_balance),
+          _buildPremiumFieldAlt("Internal Notes", _notesController, hint: "Add any private information...", icon: Icons.edit_note, isMultiline: true),
+        ]),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+        ],
+      ),
+      child: Column(
+        children: children.expand((w) => [w, const SizedBox(height: 24)]).toList()..removeLast(),
+      ),
+    );
+  }
+
+  Widget _buildPremiumField(IconData? suffix, String label, TextEditingController controller, {required String hint, required IconData icon}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Icon(icon, color: Colors.grey[300], size: 24),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: TextStyle(color: Colors.grey[300], fontWeight: FontWeight.normal),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                      ),
+                    ),
+                  ),
+                  if (suffix != null) Icon(suffix, color: Colors.black, size: 20),
+                ],
+              ),
+              const Divider(height: 1, thickness: 1),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPremiumFieldAlt(String label, TextEditingController controller, {required String hint, required IconData icon, bool isMultiline = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black, letterSpacing: 1.0),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            controller: controller,
+            maxLines: isMultiline ? 4 : 1,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: Colors.grey, size: 20),
+              hintText: hint,
+              hintStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.normal),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavigationFooter() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white.withValues(alpha: 0), Colors.white],
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_currentStep == 3)
+            ElevatedButton.icon(
+              onPressed: _isSaving ? null : _save,
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text("SAVE CONTACT", style: TextStyle(fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 10,
+                shadowColor: Colors.black.withValues(alpha: 0.3),
               ),
             ),
-          ),
+          if (_currentStep < 3)
+            ElevatedButton(
+              onPressed: _nextStep,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 10,
+                shadowColor: Colors.black.withValues(alpha: 0.3),
+              ),
+              child: const Text("Next", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          if (_currentStep > 1)
+            TextButton(
+              onPressed: _prevStep,
+              child: const Text(
+                "Back to previous step",
+                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
+              ),
+            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildNotesTab() {
-    return _buildLayout(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "NOTAS INTERNAS",
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _notesController,
-            maxLines: 8,
-            decoration: const InputDecoration(
-              hintText: "Escribe cualquier nota relevante aquí...",
-              alignLabelWithHint: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- Helper Widgets ---
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: "Ingrese $label",
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 16,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLabeledField(
-    String label,
-    TextEditingController controller, {
-    String? hint,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint ?? "Ingrese $label",
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 16,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

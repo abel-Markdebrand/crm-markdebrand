@@ -19,7 +19,7 @@ class _CartScreenState extends State<CartScreen> {
   final CrmService _crmService = CrmService();
   final ProductService _productService = ProductService();
 
-  List<Map<String, dynamic>> _selectedProducts = [];
+  final List<Map<String, dynamic>> _selectedProducts = [];
   bool _isProcessing = false;
   Map<String, dynamic>? _selectedProduct; // For dropdown state
 

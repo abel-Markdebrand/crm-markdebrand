@@ -5,7 +5,9 @@ class ProductCardStitch extends StatelessWidget {
   final String description;
   final double price;
   final String? imageUrl;
+  final int quantityInCart;
   final VoidCallback onAdd;
+  final VoidCallback onDirectSale;
 
   const ProductCardStitch({
     super.key,
@@ -13,7 +15,9 @@ class ProductCardStitch extends StatelessWidget {
     this.description = "",
     required this.price,
     this.imageUrl,
+    this.quantityInCart = 0,
     required this.onAdd,
+    required this.onDirectSale,
   });
 
   @override
@@ -94,32 +98,77 @@ class ProductCardStitch extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D59F2),
+                    color: Color(0xFF14B8A6), // Brand Teal
+                    fontFamily: 'Nexa',
                   ),
                 ),
               ],
             ),
           ),
 
-          // Add Button
-          GestureDetector(
-            onTap: onAdd,
-            child: Container(
-              width: 40,
-              height: 40,
+          // Badge for quantity
+          if (quantityInCart > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D59F2),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0D59F2).withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                color: const Color(0xFF14B8A6), // Brand Teal
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
+              child: Text(
+                "$quantityInCart",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
+
+          // Buttons
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Review Cart / Direct Sale Button
+              GestureDetector(
+                onTap: onDirectSale,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: const Icon(
+                    Icons.shopping_cart_checkout_rounded,
+                    color: Color(0xFF14B8A6), // Brand Teal
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Add Button
+              GestureDetector(
+                onTap: onAdd,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.black, // Darken to black
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 24),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -20,7 +20,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
   final ProductService _productService = ProductService();
 
   bool _isProcessing = false;
-  List<Map<String, dynamic>> _selectedProducts = [];
+  final List<Map<String, dynamic>> _selectedProducts = [];
   Map<String, dynamic>? _selectedProduct; // For searchable dropdown state
 
   // --- Actions ---

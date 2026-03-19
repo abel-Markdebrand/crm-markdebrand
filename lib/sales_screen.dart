@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/odoo_service.dart';
 import 'models/sale.dart';
+import 'screens/sale_detail_screen.dart';
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});
@@ -9,7 +10,11 @@ class SalesScreen extends StatefulWidget {
   State<SalesScreen> createState() => _SalesScreenState();
 }
 
-class _SalesScreenState extends State<SalesScreen> {
+class _SalesScreenState extends State<SalesScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final OdooService _odooService = OdooService.instance;
   List<Sale> sales = [];
   bool _isLoading = true;
@@ -45,153 +50,138 @@ class _SalesScreenState extends State<SalesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: Column(
         children: [
-          _buildHeader(),
+          // Headers moved to CrmDashboard AppBar
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : sales.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: sales.length,
-                    itemBuilder: (context, index) {
-                      return _buildSaleCard(sales[index]);
-                    },
-                  ),
+            child: RefreshIndicator(
+              onRefresh: _fetchSales,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : sales.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: sales.length,
+                      itemBuilder: (context, index) {
+                        return _buildSaleCard(sales[index]);
+                      },
+                    ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.only(top: 20, left: 16, right: 16, bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(5),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Ventas",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-          IconButton(
-            onPressed: _fetchSales,
-            icon: const Icon(Icons.refresh, color: Color(0xFF64748B)),
-          ),
-        ],
-      ),
-    );
-  }
+  // Headers moved to CrmDashboard AppBar
 
   Widget _buildSaleCard(Sale sale) {
     final statusColor = _getStatusColor(sale.state);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Icon Placeholder
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: statusColor.withAlpha(20),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.description_outlined,
-                color: statusColor,
-                size: 24,
-              ),
+    return GestureDetector(
+      onTap: () => _showSaleDetails(sale),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(5),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 16),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        sale.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Color(0xFF1E293B),
+          ],
+          border: Border.all(color: const Color(0xFFF1F5F9)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Icon Placeholder
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: statusColor.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.description_outlined,
+                  color: statusColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          sale.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Color(0xFF1E293B),
+                          ),
                         ),
+                        const SizedBox(width: 8),
+                        // Status Badge
+                        _buildStatusBadge(sale.state, statusColor),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      sale.partnerName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
                       ),
-                      const SizedBox(width: 8),
-                      // Status Badge
-                      _buildStatusBadge(sale.state, statusColor),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
+                    ),
+                  ],
+                ),
+              ),
+              // Amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
                   Text(
-                    sale.partnerName,
+                    '\$${sale.amountTotal.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const Text(
+                    "Total",
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-            ),
-            // Amount
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '\$${sale.amountTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const Text(
-                  "Total",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF94A3B8),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  void _showSaleDetails(Sale sale) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SaleDetailScreen(saleId: sale.id),
       ),
     );
   }
@@ -240,7 +230,11 @@ class _SalesScreenState extends State<SalesScreen> {
           const SizedBox(height: 16),
           Text(
             "No hay órdenes de venta",
-            style: TextStyle(color: Colors.grey[400], fontSize: 16),
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 16,
+              fontFamily: 'Inter',
+            ),
           ),
         ],
       ),

@@ -97,7 +97,9 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
   }
 
   Future<void> _pollNewMessages() async {
-    if (_lastMessageId == 0) return;
+    if (_lastMessageId == 0) {
+      return;
+    }
 
     try {
       final newMessages = await _odooService.pollWhatsAppMessages(
@@ -130,14 +132,17 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
               );
             }
 
-            if (alreadyExists)
+            if (alreadyExists) {
               debugPrint("[POLL] Ignored (Already exists): ${msg.id}");
-            if (isOurSentMessage)
+            }
+            if (isOurSentMessage) {
               debugPrint("[POLL] Ignored (In _sentMessageIds): ${msg.id}");
-            if (matchesPending)
+            }
+            if (matchesPending) {
               debugPrint(
                 "[POLL] Ignored (Matches pending or failed bubble): Body: ${msg.body.substring(0, _min(10, msg.body.length))}",
               );
+            }
 
             return !alreadyExists && !isOurSentMessage && !matchesPending;
           }).toList();
@@ -391,8 +396,10 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
                     child: Text(
@@ -430,6 +437,7 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
               Text(
                 "Online | ${widget.partnerPhone ?? widget.partnerName.toLowerCase()}@quantum.io",
                 style: const TextStyle(fontSize: 13, color: Color(0xFF667085)),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

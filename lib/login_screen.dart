@@ -3,7 +3,6 @@ import 'screens/setup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'services/odoo_service.dart';
-import 'services/voip_service.dart';
 import 'services/notification_service.dart';
 import 'services/update_service.dart';
 import 'screens/crm_dashboard_screen.dart';
@@ -89,12 +88,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!OdooService.instance.isPrismaMode) {
         try {
           await OdooService.instance.initWhatsAppClient();
-        } catch (_) {}
+        } catch (e) {
+          debugPrint("⚠️ Login: WhatsApp Init Error: $e");
+        }
       }
 
-      try {
-        await VoipService.instance.initialize();
-      } catch (_) {}
 
       await NotificationService.instance.initialize();
       NotificationService.instance.startPolling();
@@ -150,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 20,
                                 offset: const Offset(0, 10),
                               ),
@@ -159,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Image.asset(
                             'assets/image/logo_mdb.png',
                             fit: BoxFit.contain,
-                            errorBuilder: (context, _, __) =>
+                            errorBuilder: (context, error, stackTrace) =>
                                 const Icon(Icons.rocket_launch, size: 40),
                           ),
                         ),

@@ -165,7 +165,8 @@ class _ChatBubbleState extends State<ChatBubble>
                 if (widget.message.type == MessageType.audio)
                   _buildAudioContent()
                 else if (widget.message.type == MessageType.image ||
-                    widget.message.type == MessageType.sticker)
+                    widget.message.type == MessageType.sticker ||
+                    widget.message.type == MessageType.video)
                   _buildImageContent()
                 else
                   Text(

@@ -30,7 +30,7 @@ class CategoryChips extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF0D59F2) : Colors.white,
+                  color: isSelected ? Colors.black : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected
@@ -40,9 +40,7 @@ class CategoryChips extends StatelessWidget {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: const Color(
-                              0xFF0D59F2,
-                            ).withValues(alpha: 0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),

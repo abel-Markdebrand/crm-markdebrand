@@ -31,7 +31,7 @@ class _ChatInputState extends State<ChatInput> {
   RecordingState _recordingState = RecordingState.idle;
   Duration _recordDuration = Duration.zero;
   Timer? _timer;
-  double _dragOffset = 0.0;
+
   bool _isSending = false;
 
   @override
@@ -57,9 +57,11 @@ class _ChatInputState extends State<ChatInput> {
   Future<void> _startRecording() async {
     final status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Microphone permission required')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission required')),
+        );
+      }
       return;
     }
 
@@ -72,7 +74,6 @@ class _ChatInputState extends State<ChatInput> {
     _startTimer();
     setState(() {
       _recordingState = RecordingState.recording;
-      _dragOffset = 0.0;
     });
   }
 
@@ -210,11 +211,11 @@ class _ChatInputState extends State<ChatInput> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 400),
                     curve: const Cubic(0.16, 1, 0.3, 1),
-                    transform: Matrix4.identity()
-                      ..translate(
-                        0.0,
-                        _recordingState == RecordingState.idle ? 10.0 : 0.0,
-                      ),
+                    transform: Matrix4.translationValues(
+                      0.0,
+                      _recordingState == RecordingState.idle ? 10.0 : 0.0,
+                      0.0,
+                    ),
                     child: IgnorePointer(
                       ignoring: _recordingState == RecordingState.idle,
                       child: _buildAudioInterface(),

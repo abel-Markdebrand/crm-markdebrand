@@ -1,9 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:mvp_odoo/utils/odoo_utils.dart';
 import '../services/quote_service.dart';
-import '../services/odoo_service.dart'; // Direct access for fetching fetchables
+import '../services/odoo_service.dart';
 import '../config/api_endpoints.dart';
 import 'invoice_detail_screen.dart';
+import 'pdf_viewer_screen.dart';
 
 class QuoteCreationScreen extends StatefulWidget {
   final String partnerName;
@@ -80,7 +81,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
   int? _savedOrderId;
 
   // Order Lines (Local State for MVP UI)
-  List<Map<String, dynamic>> _lines = [];
+  final List<Map<String, dynamic>> _lines = [];
 
   bool _isSaving = false;
 
@@ -477,6 +478,42 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     }
   }
 
+  Future<void> _handlePreviewPdf() async {
+    setState(() => _isSaving = true);
+    try {
+      int orderId;
+      if (_savedOrderId == null) {
+        final success = await _handleSaveDraft();
+        if (!success) return;
+        orderId = _savedOrderId!;
+      } else {
+        // Update before previewing to ensure latest data is in PDF
+        await _handleSaveDraft();
+        orderId = _savedOrderId!;
+      }
+
+      final pdfPath = await _quoteService.getQuotePdf(orderId);
+      if (pdfPath != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                PdfViewerScreen(path: pdfPath, title: "Quote Preview"),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Preview error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error Previewing: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Future<void> _handleConvertToInvoice() async {
     if (_selectedPricelistId == null || _selectedPaymentTermId == null) return;
 
@@ -586,14 +623,21 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          actions: [],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF9B3232)),
+              onPressed: _isSaving ? null : _handlePreviewPdf,
+              tooltip: "Preview PDF",
+            ),
+          ],
           bottom: const TabBar(
-            labelColor: Colors.black,
+            labelColor: Color(0xFF9B3232), // Maroon from PDF
             unselectedLabelColor: Color(0xFF64748B),
-            indicatorColor: Colors.black,
+            indicatorColor: Color(0xFF9B3232),
             tabs: [
-              Tab(text: "Order Lines"),
-              Tab(text: "Other Info"),
+              Tab(text: "Líneas"),
+              Tab(text: "Info"),
+              Tab(text: "Notas"),
             ],
           ),
         ),
@@ -607,12 +651,56 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
 
                   // TAB 2: Other Info
                   _buildOtherInfoTab(),
+
+                  // TAB 3: Notes
+                  _buildNotesTab(),
                 ],
               ),
             ),
             _buildFooter(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader("NOTAS / TÉRMINOS Y CONDICIONES"),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: TextField(
+              controller: _termsController,
+              maxLines: 15,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+              decoration: const InputDecoration(
+                hintText:
+                    "Escribe aquí los términos, condiciones o notas adicionales de la cotización...",
+                hintStyle: TextStyle(color: Color(0xFF94A3B8)),
+                contentPadding: EdgeInsets.all(16),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Nota: Este texto aparecerá al final del documento PDF generado.",
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -658,7 +746,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.black),
+                      side: const BorderSide(color: Color(0xFF9B3232)),
                     ),
                   ),
                 ),
@@ -1053,10 +1141,21 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
             child: DropdownButton<int>(
               isExpanded: true,
               hint: const Text("Choose a client..."),
-              value: _selectedPartnerId,
-              items: _customers.map<DropdownMenuItem<int>>((c) {
-                return DropdownMenuItem(value: c['id'], child: Text(c['name']));
-              }).toList(),
+              value: _customers.any((c) => c['id'] == _selectedPartnerId)
+                  ? _selectedPartnerId
+                  : null,
+              items: _customers
+                  .fold<List<Map<String, dynamic>>>([], (list, item) {
+                    if (!list.any((x) => x['id'] == item['id'])) list.add(item);
+                    return list;
+                  })
+                  .map<DropdownMenuItem<int>>((c) {
+                    return DropdownMenuItem(
+                      value: c['id'],
+                      child: Text(c['name']),
+                    );
+                  })
+                  .toList(),
               onChanged: (val) {
                 setState(() => _selectedPartnerId = val);
               },
@@ -1110,9 +1209,15 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
-          value: _selectedPricelistId,
+          value: _pricelists.any((e) => e['id'] == _selectedPricelistId)
+              ? _selectedPricelistId
+              : null,
           isExpanded: true,
           items: _pricelists
+              .fold<List<Map<String, dynamic>>>([], (list, item) {
+                if (!list.any((x) => x['id'] == item['id'])) list.add(item);
+                return list;
+              })
               .map<DropdownMenuItem<int>>(
                 (e) => DropdownMenuItem(value: e['id'], child: Text(e['name'])),
               )
@@ -1133,9 +1238,15 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
-          value: _selectedPaymentTermId,
+          value: _paymentTerms.any((e) => e['id'] == _selectedPaymentTermId)
+              ? _selectedPaymentTermId
+              : null,
           isExpanded: true,
           items: _paymentTerms
+              .fold<List<Map<String, dynamic>>>([], (list, item) {
+                if (!list.any((x) => x['id'] == item['id'])) list.add(item);
+                return list;
+              })
               .map<DropdownMenuItem<int>>(
                 (e) => DropdownMenuItem(value: e['id'], child: Text(e['name'])),
               )
@@ -1184,7 +1295,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                 "\$${line['price_unit']}",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D59F2),
+                  color: Color(0xFF9B3232),
                 ),
               ),
             ],
@@ -1195,7 +1306,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
             children: [
               _buildLineMetric("Qty", "${line['product_uom_qty']} Unit"),
               _buildLineMetric("Price", "\$${line['price_unit']}"),
-              _buildLineMetric("Taxes", "15%"),
+              _buildLineMetric("Taxes", "5%"),
             ],
           ),
         ],
@@ -1245,7 +1356,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: const Color(0xFF9B3232), // Maroon Total Background
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -1255,7 +1366,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
             children: [
               const Text(
                 "Untaxed Amount",
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: TextStyle(color: Color(0xFFFFE0E0), fontSize: 12),
               ),
               Text(
                 "\$${_untaxedAmount.toStringAsFixed(2)}",
@@ -1271,8 +1382,8 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Taxes",
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                "Taxes (5%)",
+                style: TextStyle(color: Color(0xFFFFE0E0), fontSize: 12),
               ),
               Text(
                 "\$${_taxAmount.toStringAsFixed(2)}",
@@ -1285,7 +1396,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(color: Colors.white10),
+            child: Divider(color: Colors.white24),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1294,9 +1405,9 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "GRAND TOTAL",
+                    "Grand Total",
                     style: TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: Color(0xFFFFE0E0),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1354,7 +1465,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                     onPressed: _isSaving ? null : _handleSendToCustomer,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: Colors.black,
+                      backgroundColor: const Color(0xFF9B3232),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

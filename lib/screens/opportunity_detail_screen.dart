@@ -3,8 +3,7 @@ import '../services/crm_service.dart';
 import '../models/crm_models.dart';
 import '../screens/leads_creation_screen.dart';
 import '../screens/quote_creation_screen.dart';
-import '../services/voip_service.dart';
-import '../services/call_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OpportunityDetailScreen extends StatefulWidget {
   final int leadId;
@@ -48,10 +47,33 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Detalle de Oportunidad'),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
+        foregroundColor: const Color(0xFF1E293B),
+        title: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset(
+                  'assets/image/logo_mdb.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Detalle de Oportunidad',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
         actions: [
           FutureBuilder<CrmLead?>(
             future: _leadFuture,
@@ -280,6 +302,36 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
               if (lead.priority != null) _buildPriorityBadge(lead.priority!),
             ],
           ),
+          if (lead.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: lead.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.blue.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Text(
+                    tag,
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
           if (lead.niche != null) ...[
             const SizedBox(height: 16),
             Align(
@@ -474,6 +526,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
             ],
           ),
         ),
+        // ignore: use_null_aware_elements
         if (suffix != null) suffix,
       ],
     );
@@ -482,41 +535,27 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
   Widget _buildCallButton(String? phone, {bool isProminent = false}) {
     if (phone == null || phone.isEmpty) return const SizedBox();
 
-    return ListenableBuilder(
-      listenable: VoipService.instance.callManager,
-      builder: (context, _) {
-        final state = VoipService.instance.callManager.state;
-        final isRegistered = state == AppCallState.registered;
-
-        return IconButton(
-          onPressed: isRegistered
-              ? () {
-                  VoipService.instance.makeCall(phone);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Llamando a $phone..."),
-                      backgroundColor: Colors.green,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              : () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("VoIP no registrado")),
-                  );
-                },
-          icon: Icon(
-            Icons.phone_outlined,
-            color: isRegistered ? Colors.green : Colors.grey,
-          ),
-          style: IconButton.styleFrom(
-            backgroundColor: isRegistered
-                ? Colors.green.withValues(alpha: 0.1)
-                : Colors.grey.withValues(alpha: 0.1),
-            padding: const EdgeInsets.all(8),
-          ),
-        );
+    return IconButton(
+      onPressed: () async {
+        final Uri url = Uri.parse('tel:$phone');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("No se pudo iniciar la llamada")),
+            );
+          }
+        }
       },
+      icon: const Icon(
+        Icons.phone_outlined,
+        color: Colors.green,
+      ),
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.green.withValues(alpha: 0.1),
+        padding: const EdgeInsets.all(8),
+      ),
     );
   }
 

@@ -45,8 +45,14 @@ class _ChatImageBubbleState extends State<ChatImageBubble>
     if (mounted) setState(() => _isLoading = true);
 
     try {
+      debugPrint(
+        "📸 ChatImageBubble: Loading URL -> $url (Type: ${widget.message.type})",
+      );
       final path = await OdooService.instance.downloadMedia(url);
       if (mounted) {
+        if (path == null) {
+          debugPrint("❌ ChatImageBubble: downloadMedia returned NULL for $url");
+        }
         setState(() {
           _localPath = path;
           _isLoading = false;
@@ -54,7 +60,7 @@ class _ChatImageBubbleState extends State<ChatImageBubble>
         });
       }
     } catch (e) {
-      debugPrint("Error loading image: $e");
+      debugPrint("❌ ChatImageBubble: Error loading image: $e");
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -74,7 +80,7 @@ class _ChatImageBubbleState extends State<ChatImageBubble>
       child: Container(
         width: 250,
         height: 250,
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withValues(alpha: 0.1),
         child: _buildContent(),
       ),
     );
@@ -104,17 +110,59 @@ class _ChatImageBubbleState extends State<ChatImageBubble>
     }
 
     if (_localPath != null) {
-      return Image.file(
-        File(_localPath!),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        cacheWidth: 400, // Memory optimization
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Icon(Icons.error_outline, color: Colors.grey),
-          );
-        },
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          if (widget.message.type == MessageType.image ||
+              widget.message.type == MessageType.sticker)
+            Image.file(
+              File(_localPath!),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              cacheWidth: 400,
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Icon(Icons.error_outline, color: Colors.grey),
+                );
+              },
+            )
+          else if (widget.message.type == MessageType.video)
+            Container(
+              color: Colors.black.withValues(alpha: 0.05),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.videocam, color: Color(0xFF1A73E8), size: 48),
+                    SizedBox(height: 8),
+                    Text(
+                      "Video",
+                      style: TextStyle(
+                        color: Color(0xFF1A73E8),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (widget.message.type == MessageType.video)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+        ],
       );
     }
 

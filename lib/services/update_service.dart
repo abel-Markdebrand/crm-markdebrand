@@ -7,7 +7,6 @@ class UpdateService {
 
   UpdateService._internal();
 
-  // TODO: Replace with actual URLs provided by the user
   final String _androidUrl =
       "https://play.google.com/store/apps/details?id=com.markdebrand.crm";
   final String _iOSUrl = "https://apps.apple.com/app/id123456789";

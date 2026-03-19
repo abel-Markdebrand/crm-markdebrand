@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'pdf_viewer_screen.dart';
 import '../services/odoo_service.dart';
+import '../services/pdf_service.dart';
 import '../utils/odoo_utils.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -38,14 +36,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             'name',
             'partner_id',
             'invoice_date',
-            'invoice_date_due', // Added for design
-            'invoice_origin', // Added for design ("Source Order")
+            'invoice_date_due',
+            'invoice_origin',
             'amount_total',
             'state',
             'invoice_line_ids',
             'amount_untaxed',
             'amount_tax',
-            'currency_id', // To show currency symbol if needed (simplified to $)
+            'currency_id',
+            'narration', // Added for Quote Notes
           ],
         ],
       );
@@ -147,69 +146,60 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 
   Future<void> _viewInvoicePdf() async {
-    final baseUrl = _odoo.baseURL;
-    final sessionId = _odoo.session?.id;
-    if (baseUrl.isEmpty || sessionId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Cannot view PDF: Link or Session invalid"),
-          ),
-        );
-      }
-      return;
-    }
-
-    // Construct URL (Odoo report URL)
-    final url =
-        "$baseUrl/report/pdf/account.report_invoice/${widget.invoiceId}";
+    if (_invoice == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      debugPrint("Downloading PDF from: $url");
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Cookie': 'session_id=$sessionId'},
+      // 1. Fetch Partner Address (Simplified)
+      final partnerId = _invoice!['partner_id'][0];
+      final partner = await _odoo.getContactDetail(partnerId);
+      final address =
+          "${partner['street'] ?? ''}\n${partner['city'] ?? ''}, ${partner['country_id']?[1] ?? ''}";
+
+      // 2. Map Lines
+      final List<Map<String, dynamic>> pdfLines = _lines.map((l) {
+        return {
+          'name': l['name'],
+          'quantity': l['quantity'],
+          'price_unit': l['price_unit'],
+          'amount': l['price_total'],
+          'tax': 5.0, // Matching the user's 5% request
+        };
+      }).toList();
+
+      // 3. Generate local PDF via PdfService
+      final pdfPath = await PdfService.instance.generateInvoicePdf(
+        invoiceName: _invoice!['name'],
+        partnerName: _invoice!['partner_id'][1],
+        partnerAddress: address,
+        date: _invoice!['invoice_date'] ?? '',
+        dueDate: _invoice!['invoice_date_due'] ?? '',
+        origin: _invoice!['invoice_origin'] ?? '',
+        notes: _invoice!['narration'] ?? '',
+        lines: pdfLines,
+        subtotal: (_invoice!['amount_untaxed'] as num).toDouble(),
+        taxes: (_invoice!['amount_tax'] as num).toDouble(),
+        total: (_invoice!['amount_total'] as num).toDouble(),
       );
 
-      if (response.statusCode == 200) {
-        // Parse Content-Type to verify it is a PDF
-        final contentType = response.headers['content-type'];
-        if (contentType != null && !contentType.contains('application/pdf')) {
-          // It might be an HTML error page from Odoo (redirect to login)
-          throw Exception(
-            "Server returned ${contentType} instead of PDF. Session might be expired.",
-          );
-        }
-
-        final bytes = response.bodyBytes;
-        final dir = await getTemporaryDirectory();
-        final filename = "invoice_${widget.invoiceId}.pdf";
-        final file = File('${dir.path}/$filename');
-
-        await file.writeAsBytes(bytes, flush: true);
-
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PdfViewerScreen(
-                path: file.path,
-                title: _invoice?['name'] ?? "Invoice",
-              ),
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PdfViewerScreen(
+              path: pdfPath,
+              title: _invoice?['name'] ?? "Invoice",
             ),
-          );
-        }
-      } else {
-        throw Exception("Server returned status code ${response.statusCode}");
+          ),
+        );
       }
     } catch (e) {
-      debugPrint("Error viewing PDF: $e");
+      debugPrint("Error generating custom Invoice PDF: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("Error viewing PDF: $e")));
+        ).showSnackBar(SnackBar(content: Text("Error generating PDF: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -267,25 +257,47 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             ),
           ),
         ),
-        title: Column(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              invoiceName.isEmpty ? 'New Invoice' : invoiceName,
-              style: const TextStyle(
-                color: Color(0xFF0F172A), // text-slate-900
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.asset(
+                  'assets/image/logo_mdb.png',
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
-            Text(
-              isDraft ? "INVOICE DRAFT" : "INVOICE",
-              style: const TextStyle(
-                color: Color(0xFF64748B), // text-slate-500
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-              ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Mardebran",
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A), // text-slate-900
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  isDraft ? "INVOICE DRAFT" : "INVOICE: $invoiceName",
+                  style: const TextStyle(
+                    color: Color(0xFF64748B), // text-slate-500
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -430,7 +442,72 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                         ],
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Company Header (Logo + Name)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.asset(
+                                      'assets/image/logo_mdb.png',
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Mardebrand",
+                                      style: TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    Text(
+                                      isDraft ? "Draft Invoice" : "Invoice",
+                                      style: const TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+
                           // Customer Header
                           Padding(
                             padding: const EdgeInsets.all(16),
@@ -685,6 +762,47 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       }).toList(),
                     ),
                   ),
+
+                  // Section: Notes/Narration (Project Plan)
+                  if (_invoice!['narration'] != null &&
+                      (_invoice!['narration'] as String).trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "PROJECT PLAN / NOTES",
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFF1F5F9),
+                              ),
+                            ),
+                            child: Text(
+                              OdooUtils.stripHtml(_invoice!['narration']),
+                              style: const TextStyle(
+                                color: Color(0xFF334155),
+                                fontSize: 13,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   // Totals Section
                   Padding(

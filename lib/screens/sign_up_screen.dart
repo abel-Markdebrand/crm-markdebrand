@@ -103,7 +103,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        "Markdebrand",
+                        "Mardebran",
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -243,7 +243,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Text(
-                "© 2024 Markdebrand Agency",
+                "© 2024 Mardebran Ecosystem",
                 style: TextStyle(fontSize: 12, color: Colors.grey[400]),
               ),
             ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/odoo_service.dart'; // Import for OdooServiceException if needed, or consistent styling
 
 class DatabaseConfigScreen extends StatefulWidget {
   const DatabaseConfigScreen({super.key});
@@ -102,7 +101,7 @@ class _DatabaseConfigScreenState extends State<DatabaseConfigScreen> {
             TextFormField(
               controller: _dbController,
               decoration: const InputDecoration(
-                hintText: "Ej: markdebrand, test19, produccion",
+                hintText: "Ej: mardebran, test19, produccion",
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.storage),
               ),

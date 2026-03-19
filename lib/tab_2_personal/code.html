@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0090ff",
+              "background-light": "#f5f7f8",
+              "background-dark": "#0f1a23",
+            },
+            fontFamily: {
+              "display": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+
+    <div class="relative flex min-h-screen w-full flex-col max-w-md mx-auto bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+        
+        <!-- TopAppBar -->
+        <header class="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+            <div class="flex items-center p-4 justify-between">
+                <button class="text-slate-900 dark:text-slate-100 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <h2 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Formulario de Empleado</h2>
+            </div>
+            
+            <nav class="flex px-4 gap-8">
+                <a href="#" class="flex flex-col items-center justify-center border-b-2 border-transparent text-slate-500 dark:text-slate-400 pb-3 pt-2">
+                    <p class="text-sm font-semibold">Profesional</p>
+                </a>
+                <a href="#" class="flex flex-col items-center justify-center border-b-2 border-primary text-primary pb-3 pt-2">
+                    <p class="text-sm font-bold">Personal</p>
+                </a>
+            </nav>
+        </header>
+
+        <main class="flex-1 overflow-y-auto no-scrollbar pb-32">
+            
+            <!-- Section 1: Información Personal -->
+            <section class="p-4 space-y-4">
+                <div class="flex items-center gap-2 pt-2">
+                    <span class="material-symbols-outlined text-primary">person</span>
+                    <h3 class="text-lg font-bold leading-tight">Información Personal</h3>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Estado Civil</span>
+                        <select class="form-select w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary">
+                            <option value="">Seleccionar estado</option>
+                            <option value="soltero">Soltero/a</option>
+                            <option value="casado">Casado/a</option>
+                            <option value="divorciado">Divorciado/a</option>
+                            <option value="pareja">Pareja de hecho</option>
+                        </select>
+                    </label>
+
+                    <div class="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-medium">Número de Hijos</span>
+                            <span class="text-xs text-slate-500">Dependientes a cargo</span>
+                        </div>
+                        <div class="flex items-center gap-4 bg-white dark:bg-slate-900 rounded-full px-2 py-1 shadow-sm border border-slate-100 dark:border-slate-800">
+                            <button class="size-8 flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-sm">remove</span>
+                            </button>
+                            <input class="w-6 text-center bg-transparent font-bold border-none p-0 focus:ring-0" type="number" value="0" readonly />
+                            <button class="size-8 flex items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors">
+                                <span class="material-symbols-outlined text-sm">add</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Lugar de Nacimiento</span>
+                        <input type="text" placeholder="Ej: Madrid, España" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                    </label>
+
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Fecha de Nacimiento</span>
+                        <div class="relative">
+                            <input type="date" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <div class="h-2 bg-slate-100 dark:bg-slate-800/50 my-2"></div>
+
+            <!-- Section 2: Ciudadanía -->
+            <section class="p-4 space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">public</span>
+                    <h3 class="text-lg font-bold leading-tight">Ciudadanía e Identificación</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Nacionalidad</span>
+                        <input type="text" value="Española" readonly class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 h-14 px-4 cursor-not-allowed" />
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">NIF / NIE / Pasaporte</span>
+                        <input type="text" placeholder="00000000X" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary uppercase" />
+                    </label>
+                </div>
+            </section>
+
+            <div class="h-2 bg-slate-100 dark:bg-slate-800/50 my-2"></div>
+
+            <!-- Section 3: Educación -->
+            <section class="p-4 space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">school</span>
+                    <h3 class="text-lg font-bold leading-tight">Educación</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Nivel de Estudios</span>
+                        <select class="form-select w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary">
+                            <option value="">Seleccionar nivel</option>
+                            <option value="grado">Grado Universitario</option>
+                            <option value="master">Máster / Postgrado</option>
+                            <option value="fp">Formación Profesional</option>
+                            <option value="doctorado">Doctorado</option>
+                        </select>
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Campo de Estudio / Carrera</span>
+                        <input type="text" placeholder="Ej: Ingeniería de Software" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                    </label>
+                </div>
+            </section>
+
+            <div class="h-2 bg-slate-100 dark:bg-slate-800/50 my-2"></div>
+
+            <!-- Section 4: Contacto Privado -->
+            <section class="p-4 space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">contact_mail</span>
+                    <h3 class="text-lg font-bold leading-tight">Contacto Privado</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Email Privado</span>
+                        <input type="email" placeholder="nombre@personal.com" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Teléfono Privado</span>
+                        <input type="tel" placeholder="+34 600 000 000" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Nº Cuenta Bancaria (IBAN)</span>
+                        <input type="text" value="ES21 0000 0000 0000 0000 0000" readonly class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 h-14 px-4 cursor-not-allowed" />
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Distancia Casa-Trabajo (km)</span>
+                        <div class="relative">
+                            <input type="number" placeholder="0" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">km</span>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <div class="h-2 bg-slate-100 dark:bg-slate-800/50 my-2"></div>
+
+            <!-- Section 5: Emergencia -->
+            <section class="p-4 space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">emergency</span>
+                    <h3 class="text-lg font-bold leading-tight">Contacto de Emergencia</h3>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Nombre del Contacto</span>
+                        <input type="text" placeholder="Nombre completo" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-sm font-medium px-1">Teléfono de Emergencia</span>
+                        <input type="tel" placeholder="+34 600 000 000" class="form-input w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 h-14 px-4 focus:ring-primary focus:border-primary" />
+                    </label>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Fixed Bottom Button -->
+        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 z-30">
+            <button class="w-full h-14 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/25 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                <span>Continuar</span>
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </button>
+        </div>
+
+    </div>
+
+</body>
+</html></style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body></body></html>

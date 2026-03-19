@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/odoo_service.dart';
+import '../services/crm_service.dart';
 import '../models/crm_models.dart';
 
 class LeadCreationScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   int _priority = 0; // 0: Low, 1: Medium, 2: High, 3: Very High
+  final CrmService _crmService = CrmService();
   // Tags managed via list
 
   // 2. COMPANY INFO
@@ -142,7 +144,7 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     {'id': -1, 'name': 'Viable'},
     {'id': -2, 'name': 'No Viable'},
   ];
-  List<dynamic> _selectedTags = [];
+  final List<dynamic> _selectedTags = [];
   String? _selectedNiche = "Undefined";
 
   @override
@@ -154,6 +156,25 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     } else {
       _loadInitialData();
     }
+    _fetchOdooTags();
+  }
+
+  Future<void> _fetchOdooTags() async {
+    try {
+      final tags = await _crmService.getAvailableTags();
+      if (mounted) {
+        setState(() {
+          // Merge with hardcoded ones if they don't exist
+          for (var tag in tags) {
+            if (!_tagOptions.any((t) => t['name'] == tag['name'])) {
+              _tagOptions.add(tag);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching tags: $e");
+    }
   }
 
   void _loadLeadData() {
@@ -163,6 +184,17 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     _emailController.text = l.email ?? "";
     _phoneController.text = l.phone ?? "";
     _contactNameController.text = l.partnerName ?? "";
+    _priority = int.tryParse(l.priority ?? "0") ?? 0;
+
+    // Load Tags
+    if (l.tags.isNotEmpty) {
+      for (int i = 0; i < l.tags.length; i++) {
+        _selectedTags.add({
+          'id': l.tagIds.length > i ? l.tagIds[i] : -1,
+          'name': l.tags[i],
+        });
+      }
+    }
 
     // Parse description for custom fields if possible, or just load native fields
     // For now we just load what we have available in CrmLead model
@@ -172,7 +204,6 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     // Attempt to parse description for our "Stitch" custom fields logic
     if (l.description != null) {
       _notesController.text = l.description!;
-      // TODO: enhanced parsing if needed
     }
   }
 
@@ -405,6 +436,16 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
         'zip': _zipController.text,
         'expected_revenue': double.tryParse(_revenueController.text) ?? 0.0,
         'priority': _priority.toString(),
+        'tag_ids': [
+          [
+            6,
+            0,
+            _selectedTags
+                .map((t) => t['id'])
+                .where((id) => id != null && (id as int) > 0)
+                .toList(),
+          ],
+        ],
         'description':
             '${_notesController.text}\n\n'
             '--- Auto-Generated Details ---\n'
@@ -608,6 +649,8 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
                   _phoneController,
                   inputType: TextInputType.phone,
                 ),
+                const SizedBox(height: 16),
+                _buildPrioritySelector(),
                 const SizedBox(height: 16),
                 _buildTagsSelector(),
               ],
@@ -1062,6 +1105,36 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrioritySelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInputLabel("Prioridad"),
+        const SizedBox(height: 8),
+        Row(
+          children: List.generate(3, (index) {
+            final starValue = index + 1;
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _priority = starValue;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: Icon(
+                  _priority >= starValue ? Icons.star : Icons.star_border,
+                  color: _priority >= starValue ? Colors.amber : Colors.grey,
+                  size: 32,
+                ),
+              ),
+            );
+          }),
         ),
       ],
     );

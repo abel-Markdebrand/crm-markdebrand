@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'login_screen.dart';
-import 'widgets/voip/call_overlay.dart';
-import 'services/voip_service.dart';
 
+import 'login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/setup_screen.dart';
 
 void main() {
+  // Ensure that plugin services are initialized before running the app.
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -19,7 +18,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  // Tracks if the initial configuration (Odoo URL, Database) is completed.
   bool _isSetupComplete = false;
+  // Indicates if the app is currently checking the setup status.
   bool _isLoading = true;
 
   @override
@@ -28,9 +29,12 @@ class _MyAppState extends State<MyApp> {
     _checkSetupStatus();
   }
 
+  /// Checks the setup status from SharedPreferences.
+  /// If the Odoo URL and Database are configured and the setup flag is true,
+  /// the app will navigate to the Login screen. Otherwise, it shows the Setup screen.
   Future<void> _checkSetupStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    // Check if both URL/DB exist AND explict flag (to be safe)
+    // Check if both URL/DB exist AND explicit flag (to be safe)
     final url = prefs.getString('odoo_url');
     final db = prefs.getString('odoo_db');
     final isComplete = prefs.getBool('is_setup_completed') ?? false;
@@ -46,136 +50,119 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos las fuentes base aquí para reutilizarlas
-    // Century Gothic -> Questrial (Geométrica, limpia)
-    // Nexa -> Montserrat (Moderna, pesos variados)
-    final textTheme = GoogleFonts.montserratTextTheme(
-      Theme.of(context).textTheme,
-    );
-
-    if (_isLoading) {
-      return const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator(color: Colors.black)),
-        ),
-      );
-    }
-
     return MaterialApp(
-      title: 'Markdebrand CRM',
-      scaffoldMessengerKey: VoipService.scaffoldMessengerKey,
+      title: 'Mardebran',
       debugShowCheckedModeBanner: false,
 
-      // --- CONFIGURACIÓN DE TEMA GLOBAL ---
+      // --- GLOBAL THEME CONFIGURATION ---
       theme: ThemeData(
         useMaterial3: true,
+        brightness: Brightness.light,
 
-        // 1. PALETA DE COLORES (Negro Corporativo)
+        // 1. COLOR PALETTE (Premium White / Slate palette)
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.black,
-          primary: Colors.black, // Color principal de la app
-          secondary: const Color(0xFF1E293B), // Gris azulado para detalles
+          seedColor: const Color(0xFF0F172A), // Slate 900
+          primary: const Color(0xFF0F172A),
+          secondary: const Color(0xFF64748B), // Slate 500
           surface: Colors.white,
+          error: const Color(0xFFEF4444), // Red 500 (Semantic: Danger)
         ),
         scaffoldBackgroundColor: Colors.white,
 
-        // 2. CONFIGURACIÓN DE TIPOGRAFÍA (Google Fonts)
-        // Aplicamos Montserrat como base para todo el texto de la app
-        textTheme: textTheme.copyWith(
-          // Títulos Grandes (Headers) -> Usan Questrial (Simula Century Gothic)
-          displayLarge: GoogleFonts.questrial(
-            fontSize: 57,
+        fontFamily: 'Nexa',
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(
+            fontFamily: 'CenturyGothic',
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
-          displayMedium: GoogleFonts.questrial(
-            fontSize: 45,
+          headlineMedium: TextStyle(
+            fontFamily: 'CenturyGothic',
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
-          headlineMedium: GoogleFonts.questrial(
-            fontSize: 32,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-          headlineSmall: GoogleFonts.questrial(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-
-          // Cuerpo de texto (Body) -> Montserrat (Simula Nexa)
-          bodyLarge: GoogleFonts.montserrat(
+          bodyLarge: TextStyle(
+            fontFamily: 'Nexa',
             fontSize: 16,
-            fontWeight: FontWeight.w400, // Nexa Light equivalent
-            color: const Color(0xFF1E293B),
+            color: Colors.black,
           ),
-          bodyMedium: GoogleFonts.montserrat(
+          bodyMedium: TextStyle(
+            fontFamily: 'Nexa',
             fontSize: 14,
-            fontWeight: FontWeight.w400, // Nexa Light equivalent
-            color: const Color(0xFF1E293B),
+            color: Colors.black,
+          ),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: false,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            fontFamily: 'CenturyGothic',
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
           ),
         ),
 
-        // 4. ESTILO GLOBAL DE INPUTS (Cajas de texto)
+        // 3. CARD STYLE (Elevated/Surface)
+        cardTheme: CardThemeData(
+          color: const Color(0xFFF1F5F9), // Light Gray (Slate 100)
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFE2E8F0)), // Slate 200
+          ),
+        ),
+
+        // 4. GLOBAL INPUT STYLE
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: const Color(0xFFF8FAFC), // Slate 50
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 16,
+            horizontal: 16,
+            vertical: 14,
           ),
-          labelStyle: GoogleFonts.montserrat(
-            fontWeight: FontWeight.w400,
-            color: Colors.grey,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
-          hintStyle: GoogleFonts.montserrat(
-            fontWeight: FontWeight.w400,
-            color: Colors.grey[400],
-          ),
-          // Borde cuando no estás escribiendo
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
-          // Borde cuando haces clic para escribir (Se pone negro)
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.black, width: 2),
-          ),
-          // Borde de error
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.red, width: 1),
+            borderSide: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
           ),
         ),
 
-        // 5. ESTILO GLOBAL DE BOTONES
+        // 5. GLOBAL BUTTON STYLE
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
+            backgroundColor: const Color(0xFF0F172A),
             foregroundColor: Colors.white,
             elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            textStyle: GoogleFonts.montserrat(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              fontFamily: 'Nexa',
             ),
           ),
         ),
       ),
 
-      builder: (context, child) {
-        // Initialize Call Manager (Lazy or here)
-        // Note: Ideally CallManager.instance.init() is called after login,
-        // but we can ensure it's built here.
-
-        return CallOverlay(child: child!);
-      },
-      home: _isSetupComplete ? const LoginScreen() : const SetupScreen(),
+      home: _isLoading
+          ? const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: Colors.black),
+              ),
+            )
+          : (_isSetupComplete ? const LoginScreen() : const SetupScreen()),
     );
   }
 }

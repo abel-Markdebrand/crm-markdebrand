@@ -3,7 +3,9 @@ import '../services/notification_service.dart';
 import 'whatsapp_chat_screen.dart';
 
 class WhatsAppListScreen extends StatefulWidget {
-  const WhatsAppListScreen({super.key});
+  final bool showAppBar;
+
+  const WhatsAppListScreen({super.key, this.showAppBar = true});
 
   @override
   State<WhatsAppListScreen> createState() => _WhatsAppListScreenState();
@@ -30,20 +32,25 @@ class _WhatsAppListScreenState extends State<WhatsAppListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          "WhatsApp & Discuss",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black),
-            onPressed: () => _notificationService.startPolling(),
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text(
+                "WhatsApp & Discuss",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.black),
+                  onPressed: () => _notificationService.startPolling(),
+                ),
+              ],
+            )
+          : null,
       body: ValueListenableBuilder<List<Map<String, dynamic>>>(
         valueListenable: _notificationService.recentChannels,
         builder: (context, channels, child) {

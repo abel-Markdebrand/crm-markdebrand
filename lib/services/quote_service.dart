@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'odoo_service.dart';
+import 'pdf_service.dart';
 import '../config/api_endpoints.dart';
 
 class QuoteService {
@@ -199,7 +200,9 @@ class QuoteService {
           await _odoo.callKw(
             model: 'sale.advance.payment.inv',
             method: 'create_invoices',
-            args: [wizId],
+            args: [
+              [wizId],
+            ],
             kwargs: {
               // IMPORTANT: Context must be preserved for the wizard to know which order to invoice
               'context': {
@@ -227,22 +230,44 @@ class QuoteService {
       }
 
       debugPrint("Transactional: Retrieving generated Invoice ID...");
-      // 3. Retrieve the Invoice ID from the Order
-      // Retrying a few times might be needed if Odoo is slow, but usually it's synchronous.
+      // 3. Retrieve the Invoice ID from the Order AND the Quote Note
       final orderData = await _odoo.callKw(
         model: ApiRoutes.sales.model,
         method: 'read',
         args: [
           [orderId],
-          ['invoice_ids'],
+          ['invoice_ids', 'note'],
         ],
       );
 
       if (orderData != null && orderData is List && orderData.isNotEmpty) {
         final invoiceIds = orderData[0]['invoice_ids'];
+        final quoteNote = orderData[0]['note'] as String?;
+
         if (invoiceIds is List && invoiceIds.isNotEmpty) {
-          debugPrint("Success: Invoice Created with ID ${invoiceIds.last}");
-          return invoiceIds.last as int;
+          final invoiceId = invoiceIds.last as int;
+          debugPrint("Success: Invoice Created with ID $invoiceId");
+
+          // 4. Sync Note to Invoice Narration
+          if (quoteNote != null && quoteNote.isNotEmpty) {
+            try {
+              debugPrint("Syncing Quote Note to Invoice Narration...");
+              await _odoo.callKw(
+                model: 'account.move',
+                method: 'write',
+                args: [
+                  [invoiceId],
+                  {'narration': quoteNote},
+                ],
+              );
+            } catch (syncError) {
+              debugPrint(
+                "Non-blocking: Failed to sync note to invoice: $syncError",
+              );
+            }
+          }
+
+          return invoiceId;
         }
       }
 
@@ -257,8 +282,84 @@ class QuoteService {
     }
   }
 
-  /// Generates the PDF for a Quote
+  /// Generates the PDF for a Quote using Custom Design
   Future<String?> getQuotePdf(int orderId) async {
-    return await _odoo.renderReport('sale.report_saleorder', [orderId]);
+    try {
+      // 1. Fetch Order Details for the PDF
+      final res = await _odoo.callKw(
+        model: ApiRoutes.sales.model,
+        method: 'read',
+        args: [
+          [orderId],
+          [
+            'name',
+            'partner_id',
+            'date_order',
+            'validity_date',
+            'user_id',
+            'note',
+            'order_line',
+            'amount_untaxed',
+            'amount_tax',
+            'amount_total',
+          ],
+        ],
+      );
+
+      if (res == null || (res as List).isEmpty) return null;
+      final order = res[0] as Map<String, dynamic>;
+
+      // 2. Fetch Partner Address (Simplified)
+      final partnerId = order['partner_id'][0];
+      final partner = await _odoo.getContactDetail(partnerId);
+      final address =
+          "${partner['street'] ?? ''}\n${partner['city'] ?? ''}, ${partner['country_id']?[1] ?? ''}";
+
+      // 3. Fetch Lines Details
+      final lineIds = List<int>.from(order['order_line']);
+      final linesRes = await _odoo.callKw(
+        model: 'sale.order.line',
+        method: 'read',
+        args: [
+          lineIds,
+          [
+            'name',
+            'product_uom_qty',
+            'price_unit',
+            'price_subtotal',
+            'price_tax',
+          ],
+        ],
+      );
+
+      final List<Map<String, dynamic>> pdfLines = (linesRes as List).map((l) {
+        return {
+          'name': l['name'],
+          'quantity': l['product_uom_qty'],
+          'price_unit': l['price_unit'],
+          'amount': l['price_subtotal'],
+          'tax': 5.0, // Matching the user's 5% request
+        };
+      }).toList();
+
+      // 4. Generate local PDF via PdfService
+      return await PdfService.instance.generateQuotePdf(
+        orderName: order['name'],
+        partnerName: order['partner_id'][1],
+        partnerAddress: address,
+        date: order['date_order'].toString().substring(0, 10),
+        expirationDate: order['validity_date']?.toString() ?? '',
+        salesperson: order['user_id'][1],
+        notes: order['note'] ?? '',
+        lines: pdfLines,
+        subtotal: (order['amount_untaxed'] as num).toDouble(),
+        taxes: (order['amount_tax'] as num).toDouble(),
+        total: (order['amount_total'] as num).toDouble(),
+      );
+    } catch (e) {
+      debugPrint("Error generating custom PDF: $e");
+      // Fallback to Odoo standard report if custom fails
+      return await _odoo.renderReport('sale.report_saleorder', [orderId]);
+    }
   }
 }

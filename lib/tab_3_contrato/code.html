@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0090ff",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1a23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<title>Formulario de Empleado - Contrato</title>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-x-hidden">
+<!-- Top Navigation -->
+<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+<div class="flex items-center p-4 pb-2 justify-between">
+<div class="text-slate-900 dark:text-slate-100 flex size-12 shrink-0 items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-2xl">arrow_back</span>
+</div>
+<h1 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-12">Nuevo Empleado</h1>
+</div>
+<!-- Tab Bar -->
+<div class="px-4">
+<div class="flex border-b border-slate-200 dark:border-slate-800 gap-8 overflow-x-auto no-scrollbar">
+<a class="flex flex-col items-center justify-center border-b-4 border-transparent text-slate-500 dark:text-slate-400 pb-3 pt-4 whitespace-nowrap" href="#">
+<p class="text-sm font-bold tracking-wide">PERSONAL</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-4 border-transparent text-slate-500 dark:text-slate-400 pb-3 pt-4 whitespace-nowrap" href="#">
+<p class="text-sm font-bold tracking-wide">CONTACTO</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-4 border-primary text-primary pb-3 pt-4 whitespace-nowrap" href="#">
+<p class="text-sm font-bold tracking-wide">CONTRATO</p>
+</a>
+</div>
+</div>
+</header>
+<!-- Main Form Content -->
+<main class="flex-1 w-full max-w-2xl mx-auto px-4 py-6 space-y-8">
+<!-- Section 1: Datos del Contrato -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">description</span>
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold">Datos del Contrato</h2>
+</div>
+<div class="space-y-4">
+<!-- Salario Mensual Bruto -->
+<label class="flex flex-col w-full">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-2">Salario Mensual Bruto</p>
+<div class="flex w-full items-stretch rounded-xl shadow-sm">
+<input class="form-input flex w-full min-w-0 flex-1 rounded-l-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-14 placeholder:text-slate-400 p-4 text-base" placeholder="0.00" step="0.01" type="number"/>
+<div class="flex border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 items-center justify-center px-4 rounded-r-xl border-l-0">
+<span class="material-symbols-outlined text-slate-500 dark:text-slate-400">payments</span>
+</div>
+</div>
+</label>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Tipo de Contrato -->
+<label class="flex flex-col flex-1">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-2">Tipo de Contrato</p>
+<div class="relative">
+<select class="form-select w-full rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-14 p-4 pr-10 appearance-none text-base">
+<option disabled="" selected="" value="">Seleccionar tipo...</option>
+<option value="indefinido">Indefinido</option>
+<option value="temporal">Temporal</option>
+<option value="practicas">En Prácticas</option>
+<option value="obra">Obra y Servicio</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</label>
+<!-- Categoría de Nómina -->
+<label class="flex flex-col flex-1">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-2">Categoría de Nómina</p>
+<div class="relative">
+<select class="form-select w-full rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-14 p-4 pr-10 appearance-none text-base">
+<option disabled="" selected="" value="">Seleccionar categoría...</option>
+<option value="cat1">Ingenieros y Licenciados</option>
+<option value="cat2">Ingenieros Técnicos / Peritos</option>
+<option value="cat3">Jefes Administrativos</option>
+<option value="cat4">Ayudantes no Titulados</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+</section>
+<!-- Section 2: Vigencia del Contrato -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold">Vigencia del Contrato</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Fecha de Inicio -->
+<label class="flex flex-col flex-1">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-2">Fecha de Inicio</p>
+<div class="relative">
+<input class="form-input w-full rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-14 p-4 text-base" type="date"/>
+</div>
+</label>
+<!-- Fecha de Fin -->
+<label class="flex flex-col flex-1">
+<div class="flex justify-between items-center pb-2">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Fecha de Fin</p>
+<span class="text-xs text-slate-400 font-medium">(Opcional)</span>
+</div>
+<div class="relative">
+<input class="form-input w-full rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-14 p-4 text-base" type="date"/>
+</div>
+</label>
+</div>
+</section>
+<!-- Section 3: Horario de Trabajo -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">schedule</span>
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold">Horario de Trabajo</h2>
+</div>
+<label class="flex flex-col w-full">
+<p class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-2">Jornada / Horario</p>
+<div class="relative">
+<select class="form-select w-full rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 h-14 p-4 pr-10 appearance-none text-base">
+<option disabled="" selected="" value="">Seleccionar jornada...</option>
+<option value="completa">Jornada Completa (40h/sem)</option>
+<option value="parcial_mañana">Media Jornada - Mañanas</option>
+<option value="parcial_tarde">Media Jornada - Tardes</option>
+<option value="intensiva">Intensiva Verano</option>
+<option value="turnos">Turnos Rotativos</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</label>
+</section>
+<!-- Spacer for floating button -->
+<div class="h-24"></div>
+</main>
+<!-- Fixed Footer Action -->
+<footer class="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800">
+<div class="max-w-2xl mx-auto">
+<button class="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale disabled:pointer-events-none flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">save</span>
+                    GUARDAR CONTRATO
+                </button>
+<p class="text-center text-xs text-slate-400 mt-3 font-medium">Todos los campos marcados son obligatorios para la firma digital.</p>
+</div>
+</footer>
+</div>
+</body></html>

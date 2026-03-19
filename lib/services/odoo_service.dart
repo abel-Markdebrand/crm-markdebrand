@@ -6,11 +6,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../models/sale.dart';
-import '../models/voip_config.dart';
 import '../models/whatsapp_models.dart';
 import 'package:path_provider/path_provider.dart';
 
-// Definición de excepciones personalizadas para manejo de errores de negocio
+// Custom exceptions for business error handling
 class ClientRequiredException implements Exception {
   final String message;
   ClientRequiredException(this.message);
@@ -25,10 +24,12 @@ class OdooServiceException implements Exception {
   String toString() => "OdooServiceException: $message";
 }
 
+/// Service class to handle communication with Odoo via RPC.
+/// Implements Singleton pattern and supports both standard Odoo and Prisma servers.
 class OdooService {
   // ---------------------------------------------------------------------------
-  // FASE 0: REFACTORIZACIÓN CRÍTICA DE ARQUITECTURA
-  // Singleton Estático y Cliente Privado
+  // PHASE 0: CRITICAL ARCHITECTURE REFACTORING
+  // Static Singleton and Private Client
   // ---------------------------------------------------------------------------
 
   static final OdooService instance = OdooService._internal();
@@ -36,7 +37,7 @@ class OdooService {
   OdooService._internal();
 
   OdooClient? _client;
-  String? _baseUrl; // Added for VoIP Controller access
+  String? _baseUrl;
   int? _mainPartnerId; // Cached for notifications/Discuss
 
   // --- SECONDARY CLIENT FOR WHATSAPP ---
@@ -44,9 +45,8 @@ class OdooService {
   bool _isWhatsAppInitializing = false;
   int? _whatsappUid;
   final String _whatsappUrl = "https://app.prismahexagon.com";
-  final String _whatsappDb = "test19";
-  final String _whatsappUser =
-      "admin"; // TODO: Reemplazar por usuario oficial de producción
+  final String _whatsappDb = "mardebran"; // Corrected from markdebrand
+  final String _whatsappUser = "admin";
   final String _whatsappPassword =
       "310af0e42590d120613b006ff1144072069dc262"; // OFFICIAL API KEY
   // -------------------------------------
@@ -58,8 +58,6 @@ class OdooService {
   String? _prismaDb;
   // ---------------------------------
 
-  // Cache for VoIP Credentials in case of subsequent RPC failures
-  Map<String, dynamic>? _cachedVoipData;
 
   // Cache for field existence checks for the current session/server
   final Map<String, bool> _fieldCache = {};
@@ -74,13 +72,12 @@ class OdooService {
     _isPrismaMode = false;
     _prismaUid = null;
     _prismaApiKey = null;
-    _prismaDb = null;
+    _prismaDb = null; // Added reset
     _mainPartnerId = null;
-    _cachedVoipData = null;
     _fieldCache.clear();
   }
 
-  // Getter público para verificar si está inicializado (útil para guardias de navegación)
+  // Public getter to check if the service is initialized (useful for navigation guards)
   bool get isInitialized =>
       _client != null || (_isPrismaMode && _prismaUid != null);
 
@@ -88,11 +85,26 @@ class OdooService {
   OdooSession? get session => _client?.sessionId;
   bool get isPrismaMode => _isPrismaMode;
 
-  /// Inicializa el cliente con la URL del servidor
+  // Public getter for current User ID
+  int? get uid => _isPrismaMode ? _prismaUid : _client?.sessionId?.userId;
+
+  /// Initializes the client with the server URL.
   void init(String url) {
     _resetState(); // Force fresh state on new URL
-    _client = OdooClient(url);
-    _baseUrl = url;
+
+    String formattedUrl = url.trim();
+    if (!formattedUrl.startsWith('http')) {
+      formattedUrl = 'https://$formattedUrl';
+    }
+
+    // Remove trailing slash if present
+    if (formattedUrl.endsWith('/')) {
+      formattedUrl = formattedUrl.substring(0, formattedUrl.length - 1);
+    }
+
+    _client = OdooClient(formattedUrl);
+    _baseUrl = formattedUrl;
+    debugPrint("🚀 OdooService: Initialized with $formattedUrl");
   }
 
   Future<void> initWhatsAppClient() async {
@@ -104,38 +116,61 @@ class OdooService {
       debugPrint("WhatsApp Client: Initializing dual-auth recovery...");
 
       // 1. Try Admin Login (Production DB first if on Prisma)
-      // STRICT: Use the DB provided during login (_prismaDb) or fail.
-      final String targetDb = _prismaDb ?? _whatsappDb;
+      // Use _prismaDb if we ARE on the prisma server, otherwise fallback to _whatsappDb
+      final String targetDb =
+          (_isPrismaMode && _baseUrl == _whatsappUrl && _prismaDb != null)
+          ? _prismaDb!
+          : _whatsappDb;
 
-      final adminUid = await authenticatePrisma(
+      debugPrint("WhatsApp Client: Attempting login in DB: $targetDb");
+
+      var adminUid = await authenticatePrisma(
         db: targetDb,
         user: _whatsappUser,
         apiKey: _whatsappPassword,
       );
 
+      // RETRY LOGIC: If 'mardebran' failed, try 'markdebrand' (just in case)
+      if (adminUid == null && targetDb == "mardebran") {
+        debugPrint(
+          "WhatsApp Client: Retrying with fallback DB 'markdebrand'...",
+        );
+        adminUid = await authenticatePrisma(
+          db: "markdebrand",
+          user: _whatsappUser,
+          apiKey: _whatsappPassword,
+        );
+      }
+
       if (adminUid != null) {
         _whatsappUid = adminUid;
         _whatsAppClient = OdooClient(_whatsappUrl);
-        debugPrint("WhatsApp Client: Admin Login Successful in $targetDb.");
+        debugPrint("WhatsApp Client: Admin Login Successful. UID: $adminUid");
         try {
+          debugPrint("WhatsApp Client: Attempting Session Authentication...");
+          // We already know adminUid is not null here
           await _whatsAppClient!.authenticate(
             targetDb,
             _whatsappUser,
             _whatsappPassword,
           );
-        } catch (_) {}
+          debugPrint(
+            "✅ WhatsApp Client: Session Authenticated (SessionID: ${_whatsAppClient!.sessionId!.id})",
+          );
+        } catch (e) {
+          debugPrint("⚠️ WhatsApp Client: Session Authentication Failed: $e");
+        }
       } else {
-        // 2. Fallback to User Session if on Prisma
-        if (_isPrismaMode) {
+        // 2. Fallback to User Session ONLY if already on Prisma server
+        if (_isPrismaMode || _baseUrl == _whatsappUrl) {
           debugPrint(
             "WhatsApp Client: Admin Login Failed. Using current user session.",
           );
           _whatsAppClient = _client;
-          _whatsappUid = _isPrismaMode ? _prismaUid : null;
         }
       }
     } catch (e) {
-      debugPrint("WhatsApp Client Auth Error: $e");
+      debugPrint("❌ WhatsApp Client Initialization Error: $e");
     } finally {
       _isWhatsAppInitializing = false;
     }
@@ -288,7 +323,7 @@ class OdooService {
     }
   }
 
-  /// Gestiona la autenticación de sesión
+  /// Manages session authentication for both standard and Prisma servers.
   Future<void> authenticate(String db, String user, String password) async {
     if (_baseUrl == null) {
       throw OdooServiceException("Client not initialized. Call init() first.");
@@ -317,11 +352,13 @@ class OdooService {
           _prismaApiKey = password;
           _prismaDb = db;
 
-          // Fetch and cache Main Partner ID
+          // Fetch and cache Main Partner ID & VoIP Data
           await _cachePartnerId(uid);
 
           // PROACTIVE: Sync WhatsApp Client if in Prisma Mode
           initWhatsAppClient();
+
+          // PROACTIVE: Cache VoIP Data explicitly if needed (redundant now with _cachePartnerId update)
 
           return;
         } else {
@@ -336,9 +373,7 @@ class OdooService {
     }
 
     // Standard Odoo Auth
-    if (_client == null) {
-      _client = OdooClient(_baseUrl!);
-    }
+    _client ??= OdooClient(_baseUrl!);
 
     try {
       _isPrismaMode = false;
@@ -369,18 +404,35 @@ class OdooService {
   /// Helper to cache Partner ID during login
   Future<void> _cachePartnerId(int uid) async {
     try {
-      final profile = await callKw(
-        model: 'res.users',
-        method: 'read',
-        args: [
-          [uid],
-        ],
-        kwargs: {
-          'fields': ['partner_id'],
-        },
-      );
+      final profile =
+          await callKw(
+            model: 'res.users',
+            method: 'read',
+            args: [
+              [uid],
+            ],
+            kwargs: {
+            'fields': ['partner_id'],
+            },
+          ).catchError((e) {
+            debugPrint(
+              "⚠️ OdooService: Could not fetch VoIP fields in _cachePartnerId: $e",
+            );
+            return callKw(
+              model: 'res.users',
+              method: 'read',
+              args: [
+                [uid],
+              ],
+              kwargs: {
+                'fields': ['partner_id'],
+              },
+            );
+          });
       if (profile is List && profile.isNotEmpty) {
-        _mainPartnerId = profile[0]['partner_id'][0];
+        final userData = profile[0] as Map<String, dynamic>;
+        _mainPartnerId = userData['partner_id'][0];
+
         debugPrint("Cached Partner ID: $_mainPartnerId");
       }
     } catch (e) {
@@ -388,7 +440,7 @@ class OdooService {
     }
   }
 
-  /// Helper para obtener el UID del usuario actual
+  /// Helper to get the current user's UID.
   int? get currentUserId {
     if (_isPrismaMode) return _prismaUid;
     return _client?.sessionId?.userId;
@@ -396,33 +448,57 @@ class OdooService {
 
   // Cache for VoIP Credentials in case of subsequent RPC failures (REMOVED DUPLICATE)
 
-  /// Obtiene los detalles del perfil del usuario actual
+  /// Retrieves the current user's profile details.
   Future<Map<String, dynamic>> getUserProfile() async {
     final uid = currentUserId;
     if (uid == null) throw OdooServiceException("No user logged in.");
 
-    // 1. Fetch User Data (Added VoIP fields here!)
-    final userRes = await callKw(
-      model: 'res.users',
-      method: 'read',
-      args: [
-        [uid],
-      ],
-      kwargs: {
-        'fields': [
-          'name',
-          'login',
-          'partner_id',
-          'lang',
-          'tz',
-          'company_id',
-          // VoIP Fields cached on login
-          'voip_username',
-          'voip_secret',
-          'voip_provider_id',
+    dynamic userRes;
+    try {
+      userRes = await callKw(
+        model: 'res.users',
+        method: 'read',
+        args: [
+          [uid],
         ],
-      },
-    );
+        kwargs: {
+          'fields': [
+            'name',
+            'login',
+            'partner_id',
+            'lang',
+            'tz',
+            'company_id',
+            'notification_type',
+            'signature',
+            'attendance_pin',
+          ],
+        },
+      );
+    } catch (e) {
+      debugPrint(
+        "ℹ️ OdooService: Some fields missing in res.users, retrying with minimal set...",
+      );
+      userRes = await callKw(
+        model: 'res.users',
+        method: 'read',
+        args: [
+          [uid],
+        ],
+        kwargs: {
+          'fields': [
+            'name',
+            'login',
+            'partner_id',
+            'lang',
+            'tz',
+            'company_id',
+            'notification_type',
+            'signature',
+          ],
+        },
+      );
+    }
 
     if (userRes is! List || userRes.isEmpty) {
       throw OdooServiceException("User data not found.");
@@ -430,13 +506,6 @@ class OdooService {
 
     final userData = userRes[0] as Map<String, dynamic>;
 
-    // Store in cache for fetchVoipConfig fallback
-    _cachedVoipData = {
-      'voip_username': userData['voip_username'],
-      'voip_secret': userData['voip_secret'],
-      'voip_provider_id': userData['voip_provider_id'],
-    };
-    debugPrint("💾 OdooService: Cached VoIP Setup -> $_cachedVoipData");
 
     // 2. Fetch Partner Data (Image, Phone, Function)
     int? partnerId;
@@ -445,26 +514,100 @@ class OdooService {
     }
 
     if (partnerId != null) {
-      final partnerRes = await callKw(
-        model: 'res.partner',
-        method: 'read',
-        args: [
-          [partnerId],
-        ],
-        kwargs: {
-          'fields': ['image_1920', 'phone', 'function', 'email'],
-        },
-      );
+      try {
+        final partnerRes = await callKw(
+          model: 'res.partner',
+          method: 'read',
+          args: [
+            [partnerId],
+          ],
+          kwargs: {
+            'fields': ['phone', 'mobile', 'function', 'email'],
+          },
+        );
 
-      if (partnerRes is List && partnerRes.isNotEmpty) {
-        userData.addAll(partnerRes[0] as Map<String, dynamic>);
+        if (partnerRes is List && partnerRes.isNotEmpty) {
+          userData.addAll(partnerRes[0] as Map<String, dynamic>);
+        }
+
+        // Try to get image separately to avoid timeout if it's too large
+        _fetchImageAsync(partnerId, userData);
+      } catch (e) {
+        debugPrint("⚠️ OdooService: Error fetching partner details: $e");
       }
     }
 
     return userData;
   }
 
-  /// Actualiza la imagen de perfil del usuario (en res.partner)
+  /// Fetches image separately to avoid blocking the main profile load or causing timeouts
+  void _fetchImageAsync(int partnerId, Map<String, dynamic> target) async {
+    try {
+      final res = await callKw(
+        model: 'res.partner',
+        method: 'read',
+        args: [
+          [partnerId],
+        ],
+        kwargs: {
+          'fields': ['image_1920'],
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (res is List && res.isNotEmpty) {
+        target['image_1920'] = res[0]['image_1920'];
+        debugPrint("✅ OdooService: Profile image loaded asynchronously.");
+      }
+    } catch (e) {
+      debugPrint(
+        "⚠️ OdooService: Background image fetch failed (expected if large): $e",
+      );
+    }
+  }
+
+  /// Update user-specific preferences (res.users)
+  Future<bool> updateUserPreferences(Map<String, dynamic> vals) async {
+    final uid = currentUserId;
+    if (uid == null) return false;
+
+    try {
+      await callKw(
+        model: 'res.users',
+        method: 'write',
+        args: [
+          [uid],
+          vals,
+        ],
+      );
+      return true;
+    } catch (e) {
+      debugPrint("Error updating user preferences: $e");
+      return false;
+    }
+  }
+
+  /// Update partner-specific preferences (res.partner) e.g. signature
+  Future<bool> updatePartnerPreferences(Map<String, dynamic> vals) async {
+    final pid = _mainPartnerId ?? _client?.sessionId?.partnerId;
+    if (pid == null) return false;
+
+    try {
+      await callKw(
+        model: 'res.partner',
+        method: 'write',
+        args: [
+          [pid],
+          vals,
+        ],
+      );
+      return true;
+    } catch (e) {
+      debugPrint("Error updating partner preferences: $e");
+      return false;
+    }
+  }
+
+  /// Updates the user's profile image (stored in res.partner).
   Future<bool> updateUserProfileImage(String base64Image) async {
     final uid = currentUserId;
     if (uid == null) return false;
@@ -507,8 +650,8 @@ class OdooService {
     return false;
   }
 
-  /// Método centralizado para realizar llamadas a Odoo con manejo de errores robusto
-  /// Accesible por otros servicios (CrmService, ProductService, etc.)
+  /// Centralized method to perform Odoo calls with robust error handling.
+  /// Accessible by other services (CrmService, ProductService, etc.).
   Future<dynamic> callKw({
     required String model,
     required String method,
@@ -559,6 +702,14 @@ class OdooService {
             )
             .timeout(const Duration(seconds: 30));
 
+        // CRITICAL LOG: See exactly what the server says
+        debugPrint(">> Stateless RPC Stats: ${response.statusCode}");
+
+        if (response.statusCode != 200) {
+          debugPrint(">> Stateless RPC HTTP ERROR: ${response.body}");
+          // If we have a proxy error or similar, this will capture it
+        }
+
         final decoded = jsonDecode(response.body);
         if (decoded['error'] != null) {
           // Construct OdooException manually to throw it and catch below
@@ -571,20 +722,30 @@ class OdooService {
       }
 
       // Default Standard Odoo Client Call
-      return await _client!.callKw({
-        'model': model,
-        'method': method,
-        'args': args,
-        'kwargs': kwargs ?? {},
-      });
+      return await _client!
+          .callKw({
+            'model': model,
+            'method': method,
+            'args': args,
+            'kwargs': kwargs ?? {},
+          })
+          .timeout(
+            const Duration(seconds: 20),
+          ); // Prevents infinite loading on slow connections
     } on OdooException catch (e) {
-      debugPrint("Odoo RPC Error ($model.$method): $e");
+      debugPrint("❌ Odoo RPC Error ($model.$method):");
+      debugPrint("   Message: ${e.message}");
       throw OdooServiceException("Error del servidor Odoo: ${e.message}");
     } catch (e) {
-      debugPrint("Unknown Error ($model.$method): $e");
+      debugPrint("❌ Unknown RPC Error ($model.$method): $e");
+      if (e is http.Response) {
+        debugPrint("   HTTP Status: ${e.statusCode}");
+        debugPrint("   HTTP Body: ${e.body}");
+      }
       // Mapeo específico para errores de conexión
       if (e.toString().contains("SocketException") ||
-          e.toString().contains("Network is unreachable")) {
+          e.toString().contains("Network is unreachable") ||
+          e.toString().contains("Connection refused")) {
         throw OdooServiceException(
           "Error de conexión: Verifica tu internet o el servidor.",
         );
@@ -618,7 +779,7 @@ class OdooService {
           'comment', // Notes (Inquiry Details)
           'create_date', // Creation Date
         ],
-        'limit': 50,
+        // 'limit': 50, // Comentado para traer TODOS los contactos como solicitó el usuario
       },
     );
     return result as List<dynamic>;
@@ -669,7 +830,6 @@ class OdooService {
       'website',
       'vat',
       'function',
-      'title',
       'parent_name',
       'comment',
       'street',
@@ -709,43 +869,71 @@ class OdooService {
   // Methods restored or updated to support SalesScreen listing
   // ---------------------------------------------------------------------------
 
+  // Map to track pending field existence checks to avoid duplicate concurrent RPCs
+  final Map<String, Future<bool>> _pendingFieldChecks = {};
+
   Future<bool> fieldExists({
     required String model,
     required String fieldName,
     bool useWhatsAppClient = false,
   }) async {
-    try {
-      final cacheKey = "${useWhatsAppClient ? 'wa' : 'main'}:$model.$fieldName";
-      if (_fieldCache.containsKey(cacheKey)) {
-        return _fieldCache[cacheKey]!;
-      }
+    final cacheKey = "${useWhatsAppClient ? 'wa' : 'main'}:$model.$fieldName";
 
-      final domain = [
-        ['model', '=', model],
-        ['name', '=', fieldName],
-      ];
-
-      final result = useWhatsAppClient
-          ? await _callWhatsAppKw(
-              model: 'ir.model.fields',
-              method: 'search_count',
-              args: [],
-              kwargs: {'domain': domain},
-            )
-          : await callKw(
-              model: 'ir.model.fields',
-              method: 'search_count',
-              args: [],
-              kwargs: {'domain': domain},
-            );
-
-      final exists = result is int && result > 0;
-      _fieldCache[cacheKey] = exists;
-      return exists;
-    } catch (e) {
-      debugPrint("Field check failed for $model.$fieldName: $e");
+    // 0. Essential fields always exist
+    if (fieldName == 'id' ||
+        fieldName == 'name' ||
+        fieldName == 'display_name') {
+      return true;
     }
-    return false;
+
+    // 1. Check persistent cache
+    if (_fieldCache.containsKey(cacheKey)) {
+      return _fieldCache[cacheKey]!;
+    }
+
+    // 2. Check if a request is already in progress for this key
+    if (_pendingFieldChecks.containsKey(cacheKey)) {
+      return await _pendingFieldChecks[cacheKey]!;
+    }
+
+    // 3. Create the future for the check
+    final Future<bool> checkFuture = () async {
+      try {
+        final domain = [
+          ['model', '=', model],
+          ['name', '=', fieldName],
+        ];
+
+        final result = useWhatsAppClient
+            ? await _callWhatsAppKw(
+                model: 'ir.model.fields',
+                method: 'search_count',
+                args: [],
+                kwargs: {'domain': domain},
+              )
+            : await callKw(
+                model: 'ir.model.fields',
+                method: 'search_count',
+                args: [],
+                kwargs: {'domain': domain},
+              );
+
+        final exists = result is int && result > 0;
+        _fieldCache[cacheKey] = exists;
+        return exists;
+      } catch (e) {
+        debugPrint("Field check failed for $model.$fieldName: $e");
+        // Significant Optimization: Cache 'false' on error to prevent RPC storm
+        _fieldCache[cacheKey] = false;
+        return false;
+      } finally {
+        // Remove from pending once settled
+        _pendingFieldChecks.remove(cacheKey);
+      }
+    }();
+
+    _pendingFieldChecks[cacheKey] = checkFuture;
+    return await checkFuture;
   }
 
   Future<List<Sale>> getSales() async {
@@ -765,7 +953,7 @@ class OdooService {
           'date_order',
         ],
         'order': 'date_order desc',
-        'limit': 50,
+        'limit': 200, // Aumentado de 50 a 200 para ver más pedidos
       },
     );
     // Verificar si el resultado es nulo o vacío antes de mapear
@@ -777,6 +965,94 @@ class OdooService {
     } catch (e) {
       debugPrint("Error parsing Sales: $e");
       return [];
+    }
+  }
+
+  Future<Sale?> getSaleWithLines(int saleId) async {
+    try {
+      // 1. Get the sale order details
+      final saleRes = await callKw(
+        model: 'sale.order',
+        method: 'read',
+        args: [
+          [saleId],
+        ],
+        kwargs: {
+          'fields': [
+            'id',
+            'name',
+            'partner_id',
+            'amount_total',
+            'amount_untaxed',
+            'amount_tax',
+            'state',
+            'date_order',
+            'validity_date',
+            'order_line',
+            'invoice_ids',
+            'note',
+            'user_id',
+          ],
+        },
+      );
+
+      if (saleRes == null || (saleRes as List).isEmpty) return null;
+      final saleData = saleRes[0] as Map<String, dynamic>;
+
+      // 2. Load the lines
+      List<SaleLine> lines = [];
+      if (saleData['order_line'] is List &&
+          (saleData['order_line'] as List).isNotEmpty) {
+        final lineIds = (saleData['order_line'] as List).cast<int>();
+        final linesRes = await callKw(
+          model: 'sale.order.line',
+          method: 'read',
+          args: [lineIds],
+          kwargs: {
+            'fields': [
+              'id',
+              'name',
+              'product_uom_qty',
+              'price_unit',
+              'price_total',
+            ],
+          },
+        );
+
+        if (linesRes != null && linesRes is List) {
+          lines = linesRes
+              .map((l) => SaleLine.fromJson(l as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
+      // 3. Parse invoiceIds from raw data (before Sale.fromJson loses them)
+      List<int> invoiceIds = [];
+      if (saleData['invoice_ids'] is List) {
+        invoiceIds = (saleData['invoice_ids'] as List)
+            .whereType<int>()
+            .toList();
+      }
+
+      // 4. Assemble the Sale object — pass invoiceIds explicitly
+      final sale = Sale.fromJson(saleData);
+      return Sale(
+        id: sale.id,
+        name: sale.name,
+        partnerName: sale.partnerName,
+        partnerId: sale.partnerId,
+        amountTotal: sale.amountTotal,
+        amountUntaxed: sale.amountUntaxed,
+        amountTax: sale.amountTax,
+        state: sale.state,
+        dateOrder: sale.dateOrder,
+        validityDate: sale.validityDate,
+        lines: lines,
+        invoiceIds: invoiceIds, // ✅ Fixed: was always empty before
+      );
+    } catch (e) {
+      debugPrint("Error fetching Sale with lines: $e");
+      return null;
     }
   }
 
@@ -870,7 +1146,7 @@ class OdooService {
           'probability',
           'description', // Restaurado por solicitud del usuario
         ],
-        'limit': 50, // Paginación podría ser necesaria en el futuro
+        'limit': 200, // Paginación podría ser necesaria en el futuro
       },
     );
     return result as List<dynamic>;
@@ -1024,14 +1300,69 @@ class OdooService {
   // ---------------------------------------------------------------------------
 
   /// Confirma la venta (Pasa de Presupuesto a Pedido de Venta).
-  Future<void> confirmSale(int orderId) async {
+  Future<void> confirmSale(int orderId, {Map<String, dynamic>? context}) async {
     await callKw(
       model: 'sale.order',
       method: 'action_confirm',
       args: [
         [orderId],
       ],
+      kwargs: context == null ? {} : {'context': context},
     );
+  }
+
+  /// Crea la factura a partir del pedido de venta confirmado y devuelve su ID.
+  Future<int?> createInvoiceFromSale(int orderId) async {
+    try {
+      // 1. Create the wizard for generating the invoice
+      final wizardContext = {
+        'active_model': 'sale.order',
+        'active_ids': [orderId],
+        'active_id': orderId,
+      };
+
+      final wizardId = await callKw(
+        model: 'sale.advance.payment.inv',
+        method: 'create',
+        args: [
+          {'advance_payment_method': 'percentage', 'amount': 100.0},
+        ],
+        kwargs: {'context': wizardContext},
+      );
+
+      // 2. Execute the wizard action to create the invoices
+      await callKw(
+        model: 'sale.advance.payment.inv',
+        method: 'create_invoices',
+        args: [
+          [wizardId],
+        ],
+        kwargs: {'context': wizardContext},
+      );
+
+      // 3. Read the newly created invoice IDs
+      final saleRes = await callKw(
+        model: 'sale.order',
+        method: 'read',
+        args: [
+          [orderId],
+        ],
+        kwargs: {
+          'fields': ['invoice_ids'],
+        },
+      );
+
+      if (saleRes != null && (saleRes as List).isNotEmpty) {
+        final invoiceIds = saleRes[0]['invoice_ids'];
+        if (invoiceIds is List && invoiceIds.isNotEmpty) {
+          return invoiceIds.last as int;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error creating invoice from sale: $e");
+      rethrow;
+    }
   }
 
   /// Publica la factura (Validez fiscal).
@@ -1059,6 +1390,39 @@ class OdooService {
     // 1. Obtener context de la factura
     // 2. Crear 'account.payment.register' con el context active_ids=[invoiceId]
     // 3. Llamar action_create_payments()
+  }
+
+  /// Proceso completo de Venta Directa (Carrito): Cotización -> Confirmación -> Facturación.
+  Future<bool> createSaleWithCart({
+    required int partnerId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      // 1. Crear el Pedido (sale.order)
+      final int orderId = await createSaleOrder(partnerId: partnerId);
+
+      // 2. Añadir todas las líneas del carrito
+      for (final item in items) {
+        final int productId = item['id'];
+        final double qty = (item['quantity'] as num).toDouble();
+        await addOrderLine(orderId, productId, qty);
+      }
+
+      // 3. Confirmar la Venta
+      await confirmSale(orderId);
+
+      // 4. Crear la Factura
+      final int? invoiceId = await createInvoiceFromSale(orderId);
+      if (invoiceId == null) return false;
+
+      // 5. Publicar la Factura
+      await postInvoice(invoiceId);
+
+      return true;
+    } catch (e) {
+      debugPrint("Error in createSaleWithCart: $e");
+      return false;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1327,209 +1691,7 @@ class OdooService {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // FASE 5: VOIP (SIP CREDENTIALS)
-  // ---------------------------------------------------------------------------
 
-  /// Obtiene credenciales SIP Normalizadas via API (o Simulación Segura)
-  /// Retorna un objeto [VoipConfig] validado.
-  // ---------------------------------------------------------------------------
-  // FASE 5: VOIP (PRODUCCIÓN - AXIVOX INTEGRATION)
-  // ---------------------------------------------------------------------------
-
-  /// Fetches the VoIP configuration for the current user.
-  /// Follows strict production contract: {sip_login, sip_password, domain, ws_url}
-  /// Note: Uses "Safe Simulation" until backend endpoint /api/voip/config is deployed.
-  Future<VoipConfig?> fetchVoipConfig() async {
-    debugPrint("🚀 OdooService: fetchVoipConfig() initiating...");
-
-    final uid = currentUserId;
-    if (uid == null) {
-      debugPrint("❌ OdooService: No user logged in.");
-      throw OdooServiceException("No user logged in.");
-    }
-
-    // Vars to capture from Odoo or fallback
-    String sipLogin = "";
-    String sipPassword = "";
-    String domain = "";
-    String wsUrl = "";
-
-    try {
-      // 1. Try Fetch from Odoo
-      final userSettingsRes = await callKw(
-        model: 'res.users',
-        method: 'search_read',
-        args: [],
-        kwargs: {
-          'domain': [
-            ['id', '=', uid],
-          ],
-          'fields': ['voip_username', 'voip_secret', 'voip_provider_id'],
-          'limit': 1,
-        },
-      );
-
-      if (userSettingsRes != null && (userSettingsRes as List).isNotEmpty) {
-        final userData = userSettingsRes[0] as Map<String, dynamic>;
-        sipLogin = userData['voip_username']?.toString() ?? "";
-        sipPassword = userData['voip_secret']?.toString() ?? "";
-
-        // Provider Strategy
-        final providerField = userData['voip_provider_id'];
-        if (providerField is List && providerField.isNotEmpty) {
-          final providerName = providerField[1].toString();
-          debugPrint("✅ OdooService: Provider detected -> $providerName");
-
-          if (providerName.toLowerCase().contains("axivox")) {
-            domain = "pabx.axivox.com";
-            wsUrl = "wss://pabx.axivox.com:3443";
-          } else if (providerName.toLowerCase().contains("asterisk") ||
-              providerName.toLowerCase().contains("smartwash")) {
-            domain = "pbx.smartwashproaviation.com";
-            wsUrl = "wss://pbx.smartwashproaviation.com/asterisk/ws";
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("⚠️ OdooService: Failed to fetch SIP config from Odoo: $e");
-
-      // FALLBACK: Use Cached Data if available (fetched during login)
-      if (_cachedVoipData != null) {
-        debugPrint("ℹ️ OdooService: Using Cached Credentials");
-        sipLogin = _cachedVoipData!['voip_username']?.toString() ?? "";
-        sipPassword = _cachedVoipData!['voip_secret']?.toString() ?? "";
-
-        final providerField = _cachedVoipData!['voip_provider_id'];
-        if (providerField is List && providerField.isNotEmpty) {
-          final providerName = providerField[1].toString();
-          if (providerName.toLowerCase().contains("axivox")) {
-            domain = "pabx.axivox.com";
-            wsUrl = "wss://pabx.axivox.com:3443";
-          } else if (providerName.toLowerCase().contains("asterisk") ||
-              providerName.toLowerCase().contains("smartwash")) {
-            domain = "pbx.smartwashproaviation.com";
-            wsUrl = "wss://pbx.smartwashproaviation.com/asterisk/ws";
-          }
-        }
-      }
-    }
-
-    // --- STRATEGY: DYNAMIC FALLBACK (IP-Based / Dev) ---
-    // If domain/wsUrl are empty (either RPC failed OR provider not set), infer.
-    if ((domain.isEmpty || wsUrl.isEmpty) || sipLogin.isEmpty) {
-      debugPrint(
-        "⚠️ OdooService: Config missing/incomplete. Using Hardcoded Asterisk Config.",
-      );
-      try {
-        // HARDCODED CONFIG FOR PRODUCTION ASTERISK SERVER (147.93.40.102)
-        // Port 8071 is the specific port for WS (non-secure) or WSS (secure) on this server.
-        // We use WS to avoid certificate issues if no valid cert is present.
-
-        domain = "147.93.40.102"; // Asterisk IP
-        wsUrl =
-            "wss://147.93.40.102:8089/ws"; // Correct WebSocket Endpoint (Standard WSS)
-
-        // Manual Credentials from User
-        sipLogin = "101";
-        sipPassword = "abel1405";
-
-        debugPrint(
-          "🔧 OdooService: Forced Config -> Domain: $domain, WS: $wsUrl, User: $sipLogin",
-        );
-      } catch (e) {
-        debugPrint("❌ OdooService: Inference failed: $e");
-      }
-    }
-
-    // FINAL VALIDATION
-    // Logic: If RPC failed, we might have empty login/pass.
-    // If so, we can't proceed. BUT, if RPC succeeded but just missing provider, we are good.
-    if (sipLogin.isEmpty || sipPassword.isEmpty || sipLogin == "false") {
-      // LAST RESORT: Try using Odoo Login (email) as SIP User?
-      // Only if we really want to push it.
-      // For now, let's fail gracefully if no credentials found.
-      debugPrint(
-        "❌ OdooService: Missing or invalid credentials after all attempts.",
-      );
-      return null;
-    }
-
-    // Construct Config
-    final configMap = {
-      'sip_login': sipLogin,
-      'sip_password': sipPassword,
-      'domain': domain,
-      'ws_url': wsUrl,
-    };
-
-    debugPrint("✅ OdooService: VOIP Config Constructed -> $configMap");
-    return VoipConfig.fromJson(configMap);
-  }
-
-  // ---------------------------------------------------------------------------
-  // VOIP CONTROLLER INTEGRATION (Custom Endpoints)
-  // ---------------------------------------------------------------------------
-
-  /// Calls /voip/get_country_code (JSON-RPC)
-  Future<String?> voipGetCountryCode(String phoneNumber) async {
-    if (_client == null || _baseUrl == null) return null;
-
-    final uri = Uri.parse('$_baseUrl/voip/get_country_code');
-
-    // JSON-RPC 2.0 Payload
-    final payload = {
-      "jsonrpc": "2.0",
-      "method": "call",
-      "params": {"phone_number": phoneNumber},
-      "id": DateTime.now().millisecondsSinceEpoch,
-    };
-
-    try {
-      final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': 'session_id=${_client!.sessionId!.id}',
-        },
-        body: jsonEncode(payload),
-      );
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        if (body.containsKey('result')) {
-          return body['result'] as String?;
-        }
-      }
-    } catch (e) {
-      debugPrint("VoIP Country Code Error: $e");
-    }
-    return null;
-  }
-
-  /// Calls /voip/upload_recording (HTTP POST Multipart)
-  Future<void> voipUploadRecording(int callId, String filePath) async {
-    if (_client == null || _baseUrl == null) return;
-
-    final uri = Uri.parse('$_baseUrl/voip/upload_recording/$callId');
-    final request = http.MultipartRequest('POST', uri);
-
-    // Auth Cookie
-    request.headers['Cookie'] = 'session_id=${_client!.sessionId!.id}';
-
-    // Add File
-    if (File(filePath).existsSync()) {
-      request.files.add(await http.MultipartFile.fromPath('ufile', filePath));
-
-      try {
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-        debugPrint("Upload Recording Status: ${response.statusCode}");
-      } catch (e) {
-        debugPrint("Upload Recording Error: $e");
-      }
-    }
-  }
 
   // ---------------------------------------------------------------------------
   // FASE 5: WHATSAPP INTEGRATION (DUAL CLIENT ARCHITECTURE)
@@ -1925,6 +2087,9 @@ class OdooService {
       );
 
       if (messages is List) {
+        debugPrint(
+          "📩 [FETCH] Messages received: ${messages.length}. Checking attachments...",
+        );
         // 1. Collect Attachment IDs
         final Set<int> attachmentIds = {};
         for (var m in messages) {
@@ -1935,10 +2100,17 @@ class OdooService {
             }
           }
         }
+        debugPrint("📩 [FETCH] Attachment IDs found: $attachmentIds");
 
         // 2. Fetch Attachment Metadata (Mimetype, Name, Duration)
+        debugPrint(
+          "📩 fetchWhatsAppMessages: Found ${messages.length} messages. Attachment IDs to fetch: $attachmentIds",
+        );
         final Map<int, Map<String, dynamic>> attachmentMap =
             await _getAttachmentDetails(attachmentIds.toList());
+        debugPrint(
+          "📩 fetchWhatsAppMessages: Attachment mapping complete. Found metadata for ${attachmentMap.length} attachments.",
+        );
 
         return messages
             .map(
@@ -1989,14 +2161,19 @@ class OdooService {
 
     if (m['attachment_ids'] is List &&
         (m['attachment_ids'] as List).isNotEmpty) {
-      // We typically only handle the first attachment for now
       final firstAttId = (m['attachment_ids'] as List)[0] as int;
+      debugPrint("🔗 [MAP] Message ${m['id']} has attachment ID: $firstAttId");
+
+      // Always set URL if we have an ID - Fail-safe for metadata failure
+      attachmentUrl = "/web/content/$firstAttId";
+
       if (attachmentMap.containsKey(firstAttId)) {
         final att = attachmentMap[firstAttId]!;
         final mime = (att['mimetype'] as String? ?? '').toLowerCase();
         fileName = att['name'] as String?;
-        // Construct URL using ID
-        attachmentUrl = "/web/content/$firstAttId";
+        debugPrint(
+          "📎 [MAP] Found metadata for $firstAttId: $fileName ($mime)",
+        );
 
         // Try to get duration if available (Evolution sync might store it)
         if (att['duration'] != null && att['duration'] is int) {
@@ -2059,11 +2236,18 @@ class OdooService {
       );
       final Map<int, Map<String, dynamic>> map = {};
       if (results is List) {
+        debugPrint(
+          "📦 _getAttachmentDetails: Found ${results.length} attachments for ${ids.length} IDs",
+        );
         for (var r in results) {
           if (r['id'] is int) {
             map[r['id']] = r as Map<String, dynamic>;
           }
         }
+      } else {
+        debugPrint(
+          "⚠️ _getAttachmentDetails: RPC returned unexpected result: $results",
+        );
       }
       return map;
     } catch (e) {
@@ -2372,9 +2556,24 @@ class OdooService {
   /// Downloads media from Odoo using authenticated session
   Future<String?> downloadMedia(String url) async {
     // Determine which client/session to use.
-    final client = _whatsAppClient ?? _client;
+    // WhatsApp media is usually relative (/web/content) or on the prisma server.
+    final bool isWhatsAppMedia =
+        !url.startsWith('http') || url.contains('prisma');
+
+    // Ensure WhatsApp client is ready if needed
+    if (isWhatsAppMedia &&
+        (_whatsAppClient == null || _whatsAppClient!.sessionId == null)) {
+      debugPrint(
+        "⏳ downloadMedia: WhatsApp Client or Session missing. Initializing...",
+      );
+      await initWhatsAppClient();
+    }
+
+    final client = isWhatsAppMedia ? (_whatsAppClient ?? _client) : _client;
     if (client == null || client.sessionId == null) {
-      debugPrint("DownloadMedia: No active session.");
+      debugPrint(
+        "❌ downloadMedia: No active session for ${isWhatsAppMedia ? 'WhatsApp' : 'Main'} client. URL: $url",
+      );
       return null;
     }
 
@@ -2388,35 +2587,26 @@ class OdooService {
         cleanUrl = "$baseUrl$cleanUrl";
       }
 
-      // Check Cache First
+      // Check Cache First (using Hash to handle dynamic extensions)
       final directory = await getApplicationDocumentsDirectory();
+      final String filenameBase = "media_${cleanUrl.hashCode}";
 
-      // Improve filename extraction
-      String filename = cleanUrl.split('/').last;
-      if (filename.contains('?')) filename = filename.split('?').first;
-
-      // If filename is just an ID (numeric), add .jpg as fallback
-      if (RegExp(r'^\d+$').hasMatch(filename)) {
-        filename = "content_$filename.jpg";
-      }
-
-      if (!filename.contains('.') || filename.length > 50) {
-        filename = "media_${cleanUrl.hashCode}.jpg";
-      }
-
-      final localPath = '${directory.path}/$filename';
-      final file = File(localPath);
-
-      if (await file.exists()) {
-        final size = await file.length();
-        if (size > 100) {
-          // If it's a real file, not a tiny error response
-          debugPrint("📦 Media found in cache: $localPath ($size bytes)");
-          return localPath;
-        } else {
-          debugPrint("📦 Cached file too small ($size), re-downloading.");
-          await file.delete();
+      final dir = Directory(directory.path);
+      try {
+        if (dir.existsSync()) {
+          final existingFiles = dir.listSync().where(
+            (f) => f.path.contains(filenameBase),
+          );
+          if (existingFiles.isNotEmpty) {
+            final file = File(existingFiles.first.path);
+            if (await file.length() > 500) {
+              debugPrint("📦 Media found in cache: ${file.path}");
+              return file.path;
+            }
+          }
         }
+      } catch (e) {
+        debugPrint("Cache discovery error: $e");
       }
 
       debugPrint("⬇️ Downloading media: $cleanUrl");
@@ -2432,15 +2622,33 @@ class OdooService {
           debugPrint("❌ Download failed: Session Expired according to body.");
           return null;
         }
+
+        // Determine extension from Content-Type
+        String ext = 'jpg';
+        final contentType =
+            response.headers['content-type']?.toLowerCase() ?? '';
+        if (contentType.contains('video/mp4')) {
+          ext = 'mp4';
+        } else if (contentType.contains('audio/')) {
+          ext = 'm4a';
+        } else if (contentType.contains('pdf')) {
+          ext = 'pdf';
+        } else if (contentType.contains('png')) {
+          ext = 'png';
+        } else if (contentType.contains('webp')) {
+          ext = 'webp';
+        }
+
+        final finalPath = '${directory.path}/$filenameBase.$ext';
+        final file = File(finalPath);
         await file.writeAsBytes(response.bodyBytes);
+
         debugPrint(
-          "✅ Media saved to: $localPath (${response.bodyBytes.length} bytes)",
+          "✅ Media saved to: $finalPath (${response.bodyBytes.length} bytes)",
         );
-        return localPath;
+        return finalPath;
       } else {
-        debugPrint(
-          "❌ Download failed: ${response.statusCode} - ${response.body.substring(0, _min(200, response.body.length))}",
-        );
+        debugPrint("❌ Download failed: ${response.statusCode}");
         return null;
       }
     } catch (e) {
@@ -2448,8 +2656,6 @@ class OdooService {
       return null;
     }
   }
-
-  int _min(int a, int b) => a < b ? a : b;
 
   Future<List<WhatsAppMessage>> pollWhatsAppMessages(
     int? mainPartnerId,

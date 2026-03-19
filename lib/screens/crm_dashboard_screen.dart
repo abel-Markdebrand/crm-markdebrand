@@ -1,24 +1,30 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:mvp_odoo/screens/products_screen.dart';
-import 'package:mvp_odoo/screens/whatsapp_list_screen.dart';
-import 'package:mvp_odoo/services/notification_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:mvp_odoo/screens/unified_messaging_screen.dart';
 import 'package:mvp_odoo/contacts_screen.dart';
-import 'package:mvp_odoo/sales_screen.dart';
 
 import 'package:mvp_odoo/screens/leads_creation_screen.dart';
 import 'package:mvp_odoo/screens/contact_form_screen.dart';
 import 'package:mvp_odoo/screens/opportunity_detail_screen.dart';
+import 'package:mvp_odoo/screens/whatsapp_chat_screen.dart';
+import 'package:mvp_odoo/widgets/attendance_action_widget.dart';
+import 'package:mvp_odoo/screens/job_position_list_screen.dart';
+import 'package:mvp_odoo/screens/project_list_screen.dart';
 
 import 'package:mvp_odoo/services/crm_service.dart';
 import 'package:mvp_odoo/services/odoo_service.dart';
+import 'package:mvp_odoo/services/permission_service.dart';
 import 'package:mvp_odoo/models/crm_models.dart';
 import 'package:mvp_odoo/widgets/stitch/opportunity_card_stitch.dart';
-import 'package:mvp_odoo/widgets/stitch/dashboard_header.dart';
 import 'package:mvp_odoo/widgets/stitch/bottom_nav.dart';
 import 'package:mvp_odoo/screens/profile_screen.dart';
-import 'package:mvp_odoo/screens/dialpad_screen.dart';
-import 'package:mvp_odoo/screens/reports_screen.dart';
+import 'package:mvp_odoo/screens/attendance_screen.dart';
+import 'package:mvp_odoo/screens/no_access_screen.dart';
+import 'package:mvp_odoo/sales_screen.dart';
+import 'package:mvp_odoo/screens/products_screen.dart';
+
+enum AppNavigationContext { sales, rrhh, communication, operations }
 
 class CrmDashboardScreen extends StatefulWidget {
   const CrmDashboardScreen({super.key});
@@ -32,18 +38,162 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
   List<CrmStage> _stages = [];
   Map<int, int> _stageCounts = {};
   int _selectedStageId = -1;
-  String _searchQuery = "";
   bool _isLoading = true;
+  String _searchQuery = ""; // Added for parity
+  String _drawerSearchQuery = ""; // Added for drawer search
+  String? _errorMsg;
   Map<String, dynamic>? _userProfile;
 
   // Navigation State
   int _currentTabIndex = 0;
+  bool _isLoadingPermissions = true;
+  AppNavigationContext _currentContext = AppNavigationContext.sales;
+  final List<StitchTab> _tabs = [];
+  final PageController _pageController = PageController();
+
+  // Animated Text State
+  final ValueNotifier<String> _titleNotifier = ValueNotifier<String>("");
+  final String _fullTitle = "Mardebran";
 
   @override
   void initState() {
     super.initState();
-    _loadStages();
     _loadUserProfile();
+    _startTitleAnimation();
+    _initializePermissions();
+  }
+
+  Future<void> _initializePermissions() async {
+    try {
+      await PermissionService.instance
+          .fetchPermissions(force: true)
+          .timeout(const Duration(seconds: 25));
+    } catch (e) {
+      debugPrint("⚠️ Dashboard: Permission fetch failed or timed out: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingPermissions = false;
+        });
+        _buildTabs();
+        _loadStages();
+      }
+    }
+  }
+
+  void _buildTabs() {
+    _tabs.clear();
+    final p = PermissionService.instance;
+
+    switch (_currentContext) {
+      case AppNavigationContext.sales:
+        _tabs.add(
+          StitchTab(
+            icon: Icons.group,
+            label: "CRM",
+            screen: p.hasCrmAccess
+                ? _buildCrmDashboard()
+                : const NoAccessScreen(moduleName: "CRM"),
+            id: 'crm',
+          ),
+        );
+        _tabs.add(
+          StitchTab(
+            icon: Icons.groups,
+            label: "CONTACTOS",
+            screen: p.hasContactsAccess
+                ? const ContactsScreen()
+                : const NoAccessScreen(moduleName: "Contactos"),
+            id: 'contacts',
+          ),
+        );
+        _tabs.add(
+          StitchTab(
+            icon: Icons.shopping_cart,
+            label: "VENTAS",
+            screen: const SalesScreen(),
+            id: 'sales',
+          ),
+        );
+        _tabs.add(
+          StitchTab(
+            icon: Icons.inventory_2,
+            label: "PRODUCTOS",
+            screen: const ProductsScreen(),
+            id: 'products',
+          ),
+        );
+        break;
+
+      case AppNavigationContext.rrhh:
+        _tabs.add(
+          StitchTab(
+            icon: Icons.person_add_alt_1,
+            label: "RECLUTA.",
+            screen: p.hasRecruitmentAccess
+                ? const JobPositionListScreen()
+                : const NoAccessScreen(moduleName: "Reclutamiento"),
+            id: 'recruitment',
+          ),
+        );
+        _tabs.add(
+          StitchTab(
+            icon: Icons.fingerprint,
+            label: "ASISTENCIA",
+            screen: p.hasAttendanceAccess
+                ? const AttendanceScreen()
+                : const NoAccessScreen(moduleName: "Asistencia"),
+            id: 'attendance',
+          ),
+        );
+        break;
+
+      case AppNavigationContext.communication:
+        _tabs.add(
+          StitchTab(
+            icon: Icons.forum_rounded,
+            label: "CHAT",
+            screen: p.hasDiscussAccess
+                ? const UnifiedMessagingScreen(initialIndex: 0)
+                : const NoAccessScreen(moduleName: "Discuss"),
+            id: 'discuss',
+          ),
+        );
+        _tabs.add(
+          StitchTab(
+            icon: Icons.chat_rounded,
+            label: "WHATSAPP",
+            screen: p.hasDiscussAccess
+                ? const UnifiedMessagingScreen(initialIndex: 1)
+                : const NoAccessScreen(moduleName: "WhatsApp"),
+            id: 'whatsapp',
+          ),
+        );
+        break;
+
+      case AppNavigationContext.operations:
+        _tabs.add(
+          StitchTab(
+            icon: Icons.assignment_rounded,
+            label: "PROYECTOS",
+            screen: const ProjectListScreen(),
+            id: 'projects',
+          ),
+        );
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _titleNotifier.dispose();
+    super.dispose();
+  }
+
+  void _startTitleAnimation() {
+    // Animation removed as per user request to use static module titles
+    _titleNotifier.value = _fullTitle;
   }
 
   Future<void> _loadUserProfile() async {
@@ -60,14 +210,21 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
   }
 
   Future<void> _loadStages() async {
-    setState(() => _isLoading = true);
-
-    // DEBUG: Probe installed modules for 'phone' or 'voip'
-    _probeInstalledModules();
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
 
     try {
-      final stages = await _crmService.getPipelineStages();
-      final counts = await _crmService.getStageCounts();
+      // Parallelize RPC calls to Odoo
+      final results = await Future.wait([
+        _crmService.getPipelineStages(),
+        _crmService.getStageCounts(),
+      ]);
+
+      final stages = results[0] as List<CrmStage>;
+      final counts = results[1] as Map<int, int>;
 
       if (mounted) {
         setState(() {
@@ -78,546 +235,929 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
           }
           _isLoading = false;
         });
+        // Initial build only or when strictly necessary
+        if (_tabs.isEmpty) {
+          _buildTabs();
+        }
       }
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e, stacktrace) {
+      debugPrint('ERROR IN _loadStages: $e\n$stacktrace');
+      if (mounted) {
+        setState(() {
+          _errorMsg = e.toString();
+          _isLoading = false;
+        });
+      }
     }
-  }
-
-  // Temporary Probe Logic
-  Future<void> _probeInstalledModules() async {
-    try {
-      debugPrint("PROBE: Searching for 'phone' or 'voip' modules...");
-      final res = await OdooService.instance.callKw(
-        model: 'ir.module.module',
-        method: 'search_read',
-        args: [],
-        kwargs: {
-          'domain': [
-            ['state', '=', 'installed'],
-            '|',
-            ['shortdesc', 'ilike', 'phone'],
-            ['name', 'ilike', 'phone'],
-          ],
-          'fields': ['name', 'shortdesc', 'summary'],
-          'limit': 10,
-        },
-      );
-      debugPrint("PROBE RESULTS (PHONE): $res");
-
-      final resVoip = await OdooService.instance.callKw(
-        model: 'ir.module.module',
-        method: 'search_read',
-        args: [],
-        kwargs: {
-          'domain': [
-            ['state', '=', 'installed'],
-            ['name', 'ilike', 'voip'],
-          ],
-          'fields': ['name', 'shortdesc'],
-        },
-      );
-      debugPrint("PROBE RESULTS (VOIP): $resVoip");
-    } catch (e) {
-      debugPrint("PROBE ERROR: $e");
-    }
-  }
-
-  Future<void> _refreshCounts() async {
-    final counts = await _crmService.getStageCounts();
-    if (mounted) setState(() => _stageCounts = counts);
-  }
-
-  void _onStageSelected(int id) {
-    setState(() => _selectedStageId = id);
   }
 
   void _onTabSelected(int index) {
     setState(() => _currentTabIndex = index);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
+    }
   }
 
   void _handleFabAction() {
-    if (_currentTabIndex == 0) {
-      // CRM Tab -> New Opportunity
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LeadCreationScreen()),
-      ).then((result) {
-        if (result == true) {
-          _loadStages();
-        }
-      });
-    } else if (_currentTabIndex == 2) {
-      // Contacts Tab -> New Contact
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ContactFormScreen()),
-      );
+    if (_tabs.isEmpty) return;
+    final currentTabId = _tabs[_currentTabIndex].id;
+
+    switch (currentTabId) {
+      case 'crm':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const LeadCreationScreen()),
+        ).then((result) {
+          if (result == true) _loadStages();
+        });
+        break;
+      case 'contacts':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ContactFormScreen()),
+        );
+        break;
+      case 'recruitment':
+        // Recruitment creation logic
+        break;
+      case 'attendance':
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (context) => const AttendanceActionWidget(),
+        );
+        break;
+      default:
+        // Generic add or snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Acción no definida para $currentTabId")),
+        );
     }
+  }
+
+  ImageProvider? _getAvatarImage() {
+    if (_userProfile == null) return null;
+    final imgData = _userProfile!['image_1920'];
+    if (imgData != null && imgData is String && imgData.isNotEmpty) {
+      try {
+        return MemoryImage(base64Decode(imgData));
+      } catch (e) {
+        debugPrint("Error decoding avatar image: $e");
+      }
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC), // background-light
-      body: SafeArea(child: _buildBody()),
-      bottomNavigationBar: StitchBottomNav(
-        currentIndex: _currentTabIndex,
-        onTap: _onTabSelected,
-        onAddPressed: _handleFabAction,
-      ),
-      floatingActionButton:
-          _currentTabIndex ==
-              0 // Only show this floating buttons on CRM tab
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FloatingActionButton(
-                  heroTag: "whatsapp",
-                  mini: true,
-                  backgroundColor: const Color(0xFF25D366),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const WhatsAppListScreen(),
-                      ),
-                    );
-                  },
-                  child: const Icon(Icons.chat),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/image/logo_mdb.png',
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(height: 12),
-                FloatingActionButton(
-                  heroTag: "call",
-                  mini: true,
-                  backgroundColor: const Color(0xFF0D59F2),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DialpadScreen()),
-                    );
-                  },
-                  child: const Icon(Icons.call),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ValueListenableBuilder<String>(
+                      valueListenable: _titleNotifier,
+                      builder: (context, value, _) {
+                        String displayTitle = value;
+                        if (_tabs.isNotEmpty &&
+                            _currentTabIndex < _tabs.length) {
+                          displayTitle = _tabs[_currentTabIndex].label;
+                        }
+
+                        // Logo consistent styling
+                        return Text(
+                          displayTitle,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            fontFamily: 'CenturyGothic',
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                Text(
+                  _tabs.isNotEmpty && _currentTabIndex < _tabs.length
+                      ? "Ecosistema Mardebran".toUpperCase()
+                      : "Sistema de Gestión".toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.5,
+                    fontFamily: 'Nexa',
+                  ),
                 ),
               ],
+            ),
+          ],
+        ),
+        actions: [
+          if (PermissionService.instance.hasAttendanceAccess)
+            IconButton(
+              icon: const Icon(
+                Icons.fingerprint_rounded,
+                color: Color(0xFF64748B),
+              ),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  builder: (context) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32.0),
+                    child: const AttendanceActionWidget(),
+                  ),
+                );
+              },
+            ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: InkWell(
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                );
+                _loadUserProfile();
+              },
+              child: _getAvatarImage() != null
+                  ? CircleAvatar(backgroundImage: _getAvatarImage(), radius: 16)
+                  : const CircleAvatar(
+                      backgroundColor: Color(0xFFE2E8F0),
+                      radius: 16,
+                      child: Icon(Icons.person, size: 18, color: Colors.white),
+                    ),
+            ),
+          ),
+        ],
+      ),
+      drawer: _buildDrawer(),
+      body: SafeArea(child: _buildBody()),
+      bottomNavigationBar: _tabs.isNotEmpty
+          ? StitchBottomNav(
+              currentIndex: _currentTabIndex,
+              onTap: _onTabSelected,
+              onAddPressed: _handleFabAction,
+              tabs: _tabs,
+              showAddButton: _currentContext == AppNavigationContext.sales,
+            )
+          : null,
+      floatingActionButton:
+          _tabs.isNotEmpty &&
+              _tabs[_currentTabIndex].id == 'crm' &&
+              PermissionService.instance.hasDiscussAccess
+          ? FloatingActionButton(
+              heroTag: "whatsapp",
+              backgroundColor: const Color(0xFF25D366),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const UnifiedMessagingScreen(),
+                  ),
+                );
+              },
+              child: const Icon(Icons.chat),
             )
           : null, // Hide on other tabs
     );
   }
 
-  Widget _buildBody() {
-    switch (_currentTabIndex) {
-      case 0:
-        return _buildCrmDashboard();
-      case 1:
-        return const ProductsScreen();
-      case 2:
-        return const ContactsScreen();
-      case 3:
-        return const SalesScreen(); // Sales Module
-      default:
-        return const Center(child: Text("Coming Soon"));
-    }
-  }
-
-  Widget _buildCrmDashboard() {
-    return Column(
-      children: [
-        // CUSTOM APP BAR
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    'assets/image/logo_mdb.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Markdebrand CRM",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  Text(
-                    "SALES MANAGEMENT",
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              // Notification Badge
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none_outlined,
-                      color: Color(0xFF64748B),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const WhatsAppListScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  ValueListenableBuilder<int>(
-                    valueListenable: NotificationService.instance.unreadCount,
-                    builder: (context, count, child) {
-                      if (count == 0) return const SizedBox.shrink();
-                      return Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 14,
-                            minHeight: 14,
-                          ),
-                          child: Text(
-                            '$count',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              PopupMenuButton<String>(
-                offset: const Offset(0, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                onSelected: (value) async {
-                  if (value == 'profile') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProfileScreen(),
-                      ),
-                    );
-                    _loadUserProfile(); // Refresh after returning
-                  } else if (value == 'reports') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ReportsScreen(),
-                      ),
-                    );
-                  }
-                  // Other actions can be handled here
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'settings',
-                    child: Row(
-                      children: [
-                        Icon(Icons.settings, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text("Settings"),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'notifications',
-                    child: Row(
-                      children: [
-                        Icon(Icons.notifications, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text("Notifications"),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'reports',
-                    child: Row(
-                      children: [
-                        Icon(Icons.bar_chart, color: Colors.grey),
-                        SizedBox(width: 8),
-                        Text("Reports"),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'profile',
-                    child: Row(
-                      children: [
-                        Icon(Icons.person, color: Color(0xFF0D59F2)),
-                        SizedBox(width: 8),
-                        Text(
-                          "My Profile",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                child:
-                    _userProfile != null &&
-                        _userProfile!['image_1920'] != null &&
-                        (_userProfile!['image_1920'] as String).isNotEmpty
-                    ? CircleAvatar(
-                        backgroundImage: MemoryImage(
-                          base64Decode(_userProfile!['image_1920']),
-                        ),
-                        radius: 18,
-                      )
-                    : const CircleAvatar(
-                        backgroundColor: Color(0xFFE2E8F0),
-                        radius: 18,
-                        child: Icon(
-                          Icons.person,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-
-        // STAGE FILTERS
-        if (_isLoading)
-          const LinearProgressIndicator()
-        else
-          DashboardHeader(
-            stages: _stages,
-            selectedStageId: _selectedStageId,
-            onStageSelected: _onStageSelected,
-            stageCounts: _stageCounts,
-          ),
-
-        const SizedBox(height: 12),
-
-        // SEARCH BAR
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
+  Widget _buildDrawer() {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          // --- CUSTOM BRANDED DRAWER HEADER ---
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(
+              top: 50,
+              left: 20,
+              right: 20,
+              bottom: 20,
+            ),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+              image: DecorationImage(
+                image: const AssetImage('assets/image/logo_mdb.png'),
+                fit: BoxFit.cover,
+                colorFilter: ColorFilter.mode(
+                  Colors.black.withValues(alpha: 0.65),
+                  BlendMode.darken,
                 ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // User Avatar
+                _getAvatarImage() != null
+                    ? Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          image: DecorationImage(
+                            image: _getAvatarImage()!,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withAlpha(200),
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.black,
+                          size: 32,
+                        ),
+                      ),
+                const SizedBox(height: 16),
+                // User Name
+                Text(
+                  _userProfile?['name'] is String
+                      ? _userProfile!['name']
+                      : "Usuario",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'CenturyGothic',
+                  ),
+                ),
+                // User Email
+                Text(
+                  _userProfile?['email'] is String
+                      ? _userProfile!['email']
+                      : "correo@ejemplo.com",
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontFamily: 'Nexa',
+                  ),
+                ),
+                // User Job Position
+                if (_userProfile?['function'] is String &&
+                    (_userProfile!['function'] as String).isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(50),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _userProfile!['function'].toString().toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          fontFamily: 'Nexa',
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
+          ),
+          // --- BARRA DE BÚSQUEDA DEL DRAWER ---
+          Padding(
+            padding: const EdgeInsets.all(12.0),
             child: TextField(
-              decoration: const InputDecoration(
-                hintText: "Search opportunities...",
-                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: Color(0xFF94A3B8),
-                  size: 20,
+              decoration: InputDecoration(
+                hintText: "Buscar módulo...",
+                prefixIcon: const Icon(Icons.search, size: 20),
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
               onChanged: (value) {
                 setState(() {
-                  _searchQuery = value;
+                  _drawerSearchQuery = value.toLowerCase();
                 });
               },
             ),
           ),
-        ),
 
-        const SizedBox(height: 16),
-
-        // Sub-header (Filters)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[200]!),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.filter_list, size: 16, color: Colors.black54),
-                    SizedBox(width: 4),
-                    Text(
-                      "My Team",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerCategory(
+                  title: "VENTAS",
+                  icon: Icons.monetization_on_rounded,
+                  items: [
+                    _DrawerItemData(
+                      icon: Icons.dashboard_rounded,
+                      title: 'CRM / Pipeline',
+                      color: const Color(0xFF0F172A),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.sales, 0),
+                      hasAccess: PermissionService.instance.hasCrmAccess,
+                    ),
+                    _DrawerItemData(
+                      icon: Icons.contacts_rounded,
+                      title: 'Contactos',
+                      color: const Color(0xFFF59E0B),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.sales, 1),
+                      hasAccess: PermissionService.instance.hasContactsAccess,
+                    ),
+                    _DrawerItemData(
+                      icon: Icons.shopping_cart_rounded,
+                      title: 'Ventas',
+                      color: const Color(0xFFEF4444),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.sales, 2),
+                      hasAccess: true,
+                    ),
+                    _DrawerItemData(
+                      icon: Icons.inventory_2_rounded,
+                      title: 'Productos',
+                      color: const Color(0xFF64748B),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.sales, 3),
+                      hasAccess: true,
                     ),
                   ],
                 ),
+                _buildDrawerCategory(
+                  title: "RECURSOS HUMANOS",
+                  icon: Icons.badge_rounded,
+                  items: [
+                    _DrawerItemData(
+                      icon: Icons.person_add_alt_1_rounded,
+                      title: 'Reclutamiento',
+                      color: const Color(0xFF14B8A6),
+                      onTap: () => _switchContext(AppNavigationContext.rrhh, 0),
+                      hasAccess:
+                          PermissionService.instance.hasRecruitmentAccess,
+                    ),
+                    _DrawerItemData(
+                      icon: Icons.fingerprint,
+                      title: 'Check-In / Out',
+                      color: Colors.teal,
+                      onTap: () => _switchContext(AppNavigationContext.rrhh, 1),
+                      hasAccess: PermissionService.instance.hasAttendanceAccess,
+                    ),
+                  ],
+                ),
+                _buildDrawerCategory(
+                  title: "OPERACIONES",
+                  icon: Icons.build_circle_rounded,
+                  items: [
+                    _DrawerItemData(
+                      icon: Icons.assignment_rounded,
+                      title: 'Proyectos',
+                      color: const Color(0xFF8B5CF6),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.operations, 0),
+                      hasAccess: true,
+                    ),
+                  ],
+                ),
+                _buildDrawerCategory(
+                  title: "COMUNICACIÓN",
+                  icon: Icons.chat_bubble_rounded,
+                  items: [
+                    _DrawerItemData(
+                      icon: Icons.forum_rounded,
+                      title: 'Odoo Chat',
+                      color: const Color(0xFF25D366),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.communication, 0),
+                      hasAccess: PermissionService.instance.hasDiscussAccess,
+                    ),
+                    _DrawerItemData(
+                      icon: Icons.chat_rounded,
+                      title: 'WhatsApp',
+                      color: const Color(0xFF16A34A),
+                      onTap: () =>
+                          _switchContext(AppNavigationContext.communication, 1),
+                      hasAccess: PermissionService.instance.hasDiscussAccess,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          _buildDrawerFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerCategory({
+    required String title,
+    required IconData icon,
+    required List<_DrawerItemData> items,
+  }) {
+    // Filtrar items según búsqueda
+    final filteredItems = items.where((item) {
+      return item.title.toLowerCase().contains(_drawerSearchQuery);
+    }).toList();
+
+    // Si hay búsqueda y no hay coincidencias en esta categoría, ocultarla por completo
+    if (filteredItems.isEmpty && _drawerSearchQuery.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Si hay búsqueda activa y hay coincidencias, mostrar solo los items (sin expansión)
+    if (_drawerSearchQuery.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: filteredItems.map((item) {
+          return _buildDrawerItem(
+            icon: item.icon,
+            title: item.title,
+            color: item.color,
+            onTap: item.onTap,
+          );
+        }).toList(),
+      );
+    }
+
+    // Si NO hay búsqueda, mostrar el comportamiento normal (ExpansionTile)
+    return ExpansionTile(
+      leading: Icon(icon, color: Colors.black87, size: 22),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+          fontFamily: 'CenturyGothic',
+        ),
+      ),
+      initiallyExpanded: false,
+      shape: const Border(),
+      children: items.map((item) {
+        return _buildDrawerItem(
+          icon: item.icon,
+          title: item.title,
+          color: item.color,
+          onTap: item.onTap,
+        );
+      }).toList(),
+    );
+  }
+
+  void _switchContext(AppNavigationContext context, int tabIndex) {
+    Navigator.pop(this.context);
+    setState(() {
+      _currentContext = context;
+      _currentTabIndex = tabIndex;
+      _buildTabs();
+      _pageController.jumpToPage(tabIndex);
+    });
+  }
+
+  Widget _buildDrawerFooter() {
+    return Column(
+      children: [
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildFooterLink("Terms of Use", "https://markdebrand.com/terms"),
+              Text(" • ", style: TextStyle(color: Colors.grey[400])),
+              _buildFooterLink(
+                "Privacy Policy",
+                "https://markdebrand.com/privacy",
               ),
-              const Icon(Icons.calendar_month, color: Colors.black54),
             ],
           ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // OPPORTUNITY LIST (KANBAN COLUMN)
-        Expanded(
-          child: _selectedStageId == -1
-              ? const SizedBox()
-              : OpportunityList(
-                  stageId: _selectedStageId,
-                  searchQuery: _searchQuery,
-                  stages: _stages,
-                  onStageChanged: _onStageSelected,
-                  onPipelineChanged: _refreshCounts,
-                ),
         ),
       ],
     );
   }
+
+  Widget _buildFooterLink(String label, String url) {
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url)),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[600],
+          decoration: TextDecoration.underline,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+      onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      hoverColor: Colors.grey[50],
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoadingPermissions) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_tabs.isEmpty) {
+      return const Center(
+        child: Text("No modules available based on your user permissions."),
+      );
+    }
+
+    // Instead of rendering static screens stored in _tabs, we dynamically
+    // construct the CRM Dashboard to ensure it catches setState changes.
+    List<Widget> activeScreens = _tabs.map((tab) {
+      if (tab.id == 'crm') {
+        return _buildCrmDashboard();
+      }
+      return tab.screen;
+    }).toList();
+
+    return PageView(
+      controller: _pageController,
+      physics: const NeverScrollableScrollPhysics(),
+      children: activeScreens,
+      onPageChanged: (index) {
+        if (_currentTabIndex != index) {
+          setState(() => _currentTabIndex = index);
+        }
+      },
+    );
+  }
+
+  Widget _buildCrmDashboard() {
+    return RefreshIndicator(
+      onRefresh: _loadStages,
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(),
+
+          // Bar de búsqueda
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: "Buscar por nombre, cliente o ciudad...",
+                    hintStyle: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 13,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_errorMsg != null)
+            SliverFillRemaining(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 50,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Error conectando al CRM:\n$_errorMsg",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadStages,
+                        child: const Text("Reintentar"),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (_stages.isEmpty)
+            const SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  "No se encontraron etapas. (El CRM está vacío o sin configurar)",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            SliverFillRemaining(
+              child: Column(
+                children: [
+                  // Pestañas Premium (Etapas)
+                  SizedBox(
+                    height: 84,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _stages.length,
+                      itemBuilder: (context, index) {
+                        final stage = _stages[index];
+                        final isSelected = _selectedStageId == stage.id;
+                        final count = _stageCounts[stage.id] ?? 0;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() => _selectedStageId = stage.id);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.only(right: 12, bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF475569)
+                                  : Colors.white, // Slate 600 (Dark Gray)
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                if (isSelected)
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                if (!isSelected)
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                              ],
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.black
+                                    : const Color(0xFFF1F5F9),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  stage.name.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    letterSpacing: 0.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "$count",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black, // Forced black
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 4),
+                                    width: 12,
+                                    height: 2,
+                                    decoration: BoxDecoration(
+                                      color: Colors
+                                          .black, // Match indicator to text
+                                      borderRadius: BorderRadius.circular(1),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Lista de Leads de la Etapa Seleccionada
+                  Expanded(
+                    child: _selectedStageId == -1
+                        ? const Center(child: Text("Selecciona una etapa"))
+                        : SimpleOpportunityList(
+                            key: ValueKey(
+                              '${_selectedStageId}_$_searchQuery',
+                            ), // Forza recarga al cambiar etapa o buscar
+                            stageId: _selectedStageId,
+                            searchQuery: _searchQuery,
+                            stages: _stages,
+                            onChanged:
+                                _loadStages, // Recarga todo si hay cambios
+                          ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
-class OpportunityList extends StatefulWidget {
+class SimpleOpportunityList extends StatefulWidget {
   final int stageId;
   final String searchQuery;
   final List<CrmStage> stages;
-  final Function(int) onStageChanged;
-  final VoidCallback? onPipelineChanged;
+  final VoidCallback onChanged;
 
-  const OpportunityList({
+  const SimpleOpportunityList({
     super.key,
     required this.stageId,
     required this.searchQuery,
     required this.stages,
-    required this.onStageChanged,
-    this.onPipelineChanged,
+    required this.onChanged,
   });
 
   @override
-  State<OpportunityList> createState() => _OpportunityListState();
+  State<SimpleOpportunityList> createState() => _SimpleOpportunityListState();
 }
 
-class _OpportunityListState extends State<OpportunityList> {
-  Future<List<CrmLead>>? _leadsFuture;
+class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
+  final CrmService _crmService = CrmService();
+  List<CrmLead> _leads = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadLeads();
+    _fetchLeads();
   }
 
-  @override
-  void didUpdateWidget(covariant OpportunityList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.stageId != widget.stageId ||
-        oldWidget.searchQuery != widget.searchQuery) {
-      _loadLeads();
-    }
-  }
-
-  void _loadLeads() {
-    setState(() {
-      _leadsFuture = CrmService().getPipeline(
+  Future<void> _fetchLeads() async {
+    try {
+      final leads = await _crmService.getPipeline(
         widget.stageId,
         searchQuery: widget.searchQuery,
       );
-    });
+      if (mounted) {
+        setState(() {
+          _leads = leads;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  Color _getStageColor(int id) {
-    const colors = [Colors.purple, Colors.teal, Colors.amber, Colors.green];
-    return colors[id % colors.length];
-  }
-
-  void _showMoveStageModal(BuildContext context, CrmLead lead) {
+  void _showMoveDialog(CrmLead lead) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+        return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                child: Text(
-                  "Move '${lead.name}' to...",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              ListTile(
+                title: Text(
+                  "Mover '${lead.name}' a:",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
               const Divider(),
-              ...widget.stages
-                  .where((s) => s.id != widget.stageId) // Exclude current stage
-                  .map(
-                    (stage) => ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _getStageColor(
-                          stage.id,
-                        ).withValues(alpha: 0.2),
-                        child: Icon(
-                          Icons.arrow_forward,
-                          color: _getStageColor(stage.id),
-                        ),
-                      ),
-                      title: Text(stage.name),
-                      onTap: () async {
-                        Navigator.pop(context);
-                        await _moveLead(lead, stage.id);
-                      },
-                    ),
-                  ),
+              ...widget.stages.where((s) => s.id != widget.stageId).map((
+                stage,
+              ) {
+                return ListTile(
+                  leading: const Icon(Icons.arrow_forward),
+                  title: Text(stage.name),
+                  onTap: () async {
+                    Navigator.pop(context); // Cierra modal
+                    // Muestra carga visual simple
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Moviendo lead...")),
+                    );
+                    try {
+                      await _crmService.updateLeadStage(lead.id, stage.id);
+                      widget.onChanged(); // Actualiza conteos y listas arriba
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Error al mover: $e")),
+                        );
+                      }
+                    }
+                  },
+                );
+              }),
             ],
           ),
         );
@@ -625,69 +1165,45 @@ class _OpportunityListState extends State<OpportunityList> {
     );
   }
 
-  Future<void> _moveLead(CrmLead lead, int newStageId) async {
-    // Optimistic UI update or Show Loading?
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Moving opportunity...")));
-
-    try {
-      await CrmService().updateLeadStage(lead.id, newStageId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Opportunity moved successfully!")),
-        );
-        _loadLeads(); // Refresh current list (item should disappear)
-        widget.onPipelineChanged?.call(); // Refresh counts in parent
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error moving opportunity: $e")));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<CrmLead>>(
-      future: _leadsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox, size: 48, color: Colors.grey[300]),
-                const SizedBox(height: 12),
-                Text(
-                  "No deals here",
-                  style: TextStyle(color: Colors.grey[400]),
-                ),
-              ],
-            ),
-          );
-        }
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        final leads = snapshot.data!;
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: leads.length,
-          itemBuilder: (context, index) {
-            final lead = leads[index];
-            return OpportunityCardStitch(
-              partnerName: lead.partnerName ?? 'Unknown Client',
-              opportunityName: lead.name,
+    if (_error != null) {
+      return Center(
+        child: Text(
+          "Error cargando leads: \n$_error",
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.red),
+        ),
+      );
+    }
+
+    if (_leads.isEmpty) {
+      return const Center(
+        child: Text(
+          "No hay oportunidades en esta etapa.",
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _leads.length,
+      itemBuilder: (context, index) {
+        final lead = _leads[index];
+        return Stack(
+          children: [
+            OpportunityCardStitch(
+              name: lead.name,
+              partnerName: lead.partnerName ?? 'Sin Cliente',
               expectedRevenue: lead.expectedRevenue,
-              stageName: "Stage ${widget.stageId}",
-              stageColor: _getStageColor(widget.stageId),
-              partnerId: lead.partnerId,
-              phone: lead.phone,
-              onLongPress: () => _showMoveStageModal(context, lead),
+              priority: lead.priority ?? '0',
+              tags: lead.tags,
+              phone: lead.phone, // Passing phone number
               onTap: () {
                 Navigator.push(
                   context,
@@ -695,12 +1211,43 @@ class _OpportunityListState extends State<OpportunityList> {
                     builder: (context) =>
                         OpportunityDetailScreen(leadId: lead.id),
                   ),
+                ).then((_) => _fetchLeads()); // Refresh when coming back
+              },
+              onLongPress: () => _showMoveDialog(lead),
+              onMove: () => _showMoveDialog(lead),
+              onWhatsApp: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WhatsAppChatScreen(
+                      partnerId: lead.partnerId,
+                      partnerName: lead.partnerName ?? 'Desconocido',
+                      partnerPhone: lead.phone,
+                    ),
+                  ),
                 );
               },
-            );
-          },
+            ),
+          ],
         );
       },
     );
   }
+}
+
+// --- HELPER CLASSES FOR DRAWER ---
+class _DrawerItemData {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+  final bool hasAccess;
+
+  _DrawerItemData({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+    this.hasAccess = true,
+  });
 }

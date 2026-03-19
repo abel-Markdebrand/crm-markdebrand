@@ -1,3 +1,5 @@
+rootProject.name = "mvp_odoo_android"
+
 pluginManagement {
     val flutterSdkPath =
         run {

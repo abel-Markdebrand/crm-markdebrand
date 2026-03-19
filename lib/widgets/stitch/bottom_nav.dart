@@ -1,15 +1,34 @@
 import 'package:flutter/material.dart';
 
+class StitchTab {
+  final IconData icon;
+  final String label;
+  final Widget screen;
+  final String
+  id; // added identifier like 'crm', 'contacts' etc to know what logic to fire for FAB
+
+  StitchTab({
+    required this.icon,
+    required this.label,
+    required this.screen,
+    required this.id,
+  });
+}
+
 class StitchBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final VoidCallback onAddPressed;
+  final List<StitchTab> tabs;
+  final bool showAddButton;
 
   const StitchBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
     required this.onAddPressed,
+    required this.tabs,
+    this.showAddButton = true,
   });
 
   @override
@@ -33,40 +52,34 @@ class StitchBottomNav extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.group, "CRM", 0),
-              _buildNavItem(Icons.inventory_2, "Stock", 1), // Was Products
-              _buildNavItem(
-                Icons.groups,
-                "CONTACTS",
-                2,
-              ), // Was Contacts (Person)
-              _buildNavItem(Icons.point_of_sale, "Sales", 3), // Sales Module
-            ],
+            children: List.generate(tabs.length, (index) {
+              return _buildNavItem(tabs[index].icon, tabs[index].label, index);
+            }),
           ),
-          Positioned(
-            top: -24,
-            child: GestureDetector(
-              onTap: onAddPressed,
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A), // Slate 900
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(color: Colors.white, width: 4),
+          if (showAddButton)
+            Positioned(
+              top: -24,
+              child: GestureDetector(
+                onTap: onAddPressed,
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A), // Slate 900
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.white, width: 4),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 28),
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 28),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -74,7 +87,9 @@ class StitchBottomNav extends StatelessWidget {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isActive = currentIndex == index;
-    final color = isActive ? const Color(0xFF0D59F2) : const Color(0xFF94A3B8);
+    const kActiveColor = Color(0xFF6366F1); // Brand Indigo
+    const kInactiveColor = Color(0xFF94A3B8); // Muted
+    final color = isActive ? kActiveColor : kInactiveColor;
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
@@ -92,6 +107,7 @@ class StitchBottomNav extends StatelessWidget {
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
+                fontFamily: 'Nexa',
               ),
             ),
           ],

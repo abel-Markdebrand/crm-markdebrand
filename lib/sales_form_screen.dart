@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/crm_service.dart';
+import 'screens/invoice_detail_screen.dart';
 
 class SalesFormScreen extends StatefulWidget {
   final int? orderId; // ID del pedido creado
@@ -59,10 +60,11 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
       await _crmService.setAllLinesDelivered(widget.orderId!);
 
       final invoiceId = await _crmService.generateInvoice(widget.orderId!);
-      if (invoiceId == null)
+      if (invoiceId == null) {
         throw Exception(
           "No se generó factura (Verifique política de facturación)",
         );
+      }
 
       // 3. Publicar
       await _crmService.postInvoice(invoiceId);
@@ -78,7 +80,14 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Pago Registrado')));
-        Navigator.pop(context); // Salir
+
+        // RUTEO A LA FACTURA FINAL EN LUGAR DE SALIR
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InvoiceDetailScreen(invoiceId: invoiceId),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

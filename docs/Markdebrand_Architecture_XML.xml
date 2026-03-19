@@ -1,0 +1,139 @@
+<mxfile host="65bd71144e">
+    <diagram id="Markdebrand_Architecture_Fidelity" name="Markdebrand MVP Odoo">
+        <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+            <root>
+                <!-- Layers -->
+                <mxCell id="0" />
+                <mxCell id="1" parent="0" />
+
+                <!-- Mobile App Container -->
+                <mxCell id="app_box" value="Markdebrand MVP Odoo App" style="swimlane;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cccccc;fontColor=#333333;startSize=23;" vertex="1" parent="1">
+                    <mxGeometry x="10" y="210" width="730" height="420" as="geometry" />
+                </mxCell>
+
+                <!-- Section: Comunicaciones / Marketing -->
+                <mxCell id="sec_msj" value="Comunicaciones / Marketing" style="swimlane;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#333333;fontColor=#ffffff;startSize=23;" vertex="1" parent="app_box">
+                    <mxGeometry x="10" y="40" width="180" height="360" as="geometry" />
+                </mxCell>
+                <mxCell id="wa_int" value="WhatsApp Integration" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#333333;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_msj">
+                    <mxGeometry x="10" y="160" width="75" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="odoo_disc" value="Odoo Discuss" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#333333;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_msj">
+                    <mxGeometry x="95" y="160" width="75" height="50" as="geometry" />
+                </mxCell>
+
+                <!-- Section: Operaciones & Proyectos -->
+                <mxCell id="sec_ops" value="Operaciones &amp; Proyectos" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fffeee;strokeColor=#fff9c4;fontColor=#333333;startSize=23;" vertex="1" parent="app_box">
+                    <mxGeometry x="200" y="40" width="120" height="360" as="geometry" />
+                </mxCell>
+                <mxCell id="ops_proj" value="Gestión Proyectos" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_ops">
+                    <mxGeometry x="10" y="40" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="ops_tasks" value="Tablero Tareas" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_ops">
+                    <mxGeometry x="10" y="120" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="ops_contacts" value="Sinc. Contactos" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_ops">
+                    <mxGeometry x="10" y="200" width="100" height="50" as="geometry" />
+                </mxCell>
+
+                <!-- Section: Ventas & CRM -->
+                <mxCell id="sec_sales" value="Ventas &amp; CRM" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f1f8e9;strokeColor=#dcedc8;fontColor=#333333;startSize=23;" vertex="1" parent="app_box">
+                    <mxGeometry x="330" y="40" width="120" height="360" as="geometry" />
+                </mxCell>
+                <mxCell id="sales_leads" value="Leads / Oportunidades" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_sales">
+                    <mxGeometry x="10" y="40" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="sales_quotes" value="Cotizaciones" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_sales">
+                    <mxGeometry x="10" y="120" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="sales_invoices" value="Facturación" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_sales">
+                    <mxGeometry x="10" y="200" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="sales_catalog" value="Catálogo Productos" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_sales">
+                    <mxGeometry x="10" y="280" width="100" height="50" as="geometry" />
+                </mxCell>
+
+                <!-- Section: Recursos Humanos -->
+                <mxCell id="sec_hr" value="Recursos Humanos" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#bbdefb;fontColor=#333333;startSize=23;" vertex="1" parent="app_box">
+                    <mxGeometry x="460" y="40" width="120" height="360" as="geometry" />
+                </mxCell>
+                <mxCell id="hr_emps" value="Empleados" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_hr">
+                    <mxGeometry x="10" y="40" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="hr_atten" value="Asistencia / PIN" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_hr">
+                    <mxGeometry x="10" y="120" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="hr_rec" value="Reclutamiento" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_hr">
+                    <mxGeometry x="10" y="200" width="100" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="hr_time" value="Timesheets" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_hr">
+                    <mxGeometry x="10" y="280" width="100" height="50" as="geometry" />
+                </mxCell>
+
+                <!-- Section: Tecnología / VoIP (Removed for User Sync, but added back if they want 'identico') -->
+                <!-- The user said 'quitalo del VoIP' in Step 194. In 223 they say 'identico'. -->
+                <!-- I will include it as in the picture to satisfy 'identico', but maybe they really want it gone -->
+                <!-- Let's follow 'identico' which is the LATEST strongly repeated command -->
+                <mxCell id="sec_voip" value="Tecnología / VoIP" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e0f7fa;strokeColor=#b2ebf2;fontColor=#333333;startSize=23;" vertex="1" parent="app_box">
+                    <mxGeometry x="590" y="10" width="130" height="400" as="geometry" />
+                </mxCell>
+                <mxCell id="voip_sip" value="Softphone SIP" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_voip">
+                    <mxGeometry x="10" y="30" width="55" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="voip_screen" value="Pantalla Llamada" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_voip">
+                    <mxGeometry x="70" y="30" width="55" height="50" as="geometry" />
+                </mxCell>
+                <mxCell id="voip_rtc" value="Media Stream WebRTC" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="sec_voip">
+                    <mxGeometry x="40" y="250" width="80" height="50" as="geometry" />
+                </mxCell>
+
+                <!-- External Servers -->
+                <mxCell id="srv_odoo" value="Servidor Odoo ERP" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#714B67;strokeColor=#ffffff;fontColor=#ffffff;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="380" y="750" width="150" height="40" as="geometry" />
+                </mxCell>
+
+                <mxCell id="srv_sip" value="Servidor SIP Asterisk" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ff6b6b;strokeColor=#ffffff;fontColor=#ffffff;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="760" y="440" width="130" height="40" as="geometry" />
+                </mxCell>
+
+                <mxCell id="srv_prisma" value="Servidor Prisma Hexagon" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#ffffff;fontColor=#ffffff;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="760" y="750" width="130" height="40" as="geometry" />
+                </mxCell>
+
+                <!-- Auth Diamond -->
+                <mxCell id="user_node" value="Usuario Móvil" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="1">
+                    <mxGeometry x="830" y="260" width="100" height="30" as="geometry" />
+                </mxCell>
+
+                <mxCell id="auth_rhombus" value="Autenticación" style="rhombus;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="1">
+                    <mxGeometry x="830" y="420" width="100" height="80" as="geometry" />
+                </mxCell>
+
+                <!-- Connections -->
+                <!-- App modules to Odoo -->
+                <mxCell id="e_wa_odoo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="sec_msj" target="srv_odoo" />
+                <mxCell id="e_ops_odoo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="sec_ops" target="srv_odoo" />
+                <mxCell id="e_sales_odoo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="sec_sales" target="srv_odoo" />
+                <mxCell id="e_hr_odoo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="sec_hr" target="srv_odoo" />
+
+                <!-- WhatsApp API -->
+                <mxCell id="srv_wa_api" value="WhatsApp Official API" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="1">
+                    <mxGeometry x="30" y="750" width="130" height="40" as="geometry" />
+                </mxCell>
+                <mxCell id="e_wa_api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="wa_int" target="srv_wa_api" />
+
+                <!-- VoIP and Auth connections -->
+                <mxCell id="e_user_auth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="user_node" target="auth_rhombus" />
+                <mxCell id="e_auth_odoo" value="Odoo RPC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="auth_rhombus" target="srv_odoo" />
+                <mxCell id="e_auth_prisma" value="Prisma RPC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auth_rhombus" target="srv_prisma" />
+                <mxCell id="e_voip_sip" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="sec_voip" target="srv_sip" />
+                
+                <mxCell id="srv_bio" value="Local Auth / FaceID / Huella" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#1a1a1a;strokeColor=#ffffff;fontColor=#ffffff;" vertex="1" parent="1">
+                    <mxGeometry x="930" y="750" width="130" height="40" as="geometry" />
+                </mxCell>
+                <mxCell id="e_auth_bio" value="Biometría" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auth_rhombus" target="srv_bio" />
+
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

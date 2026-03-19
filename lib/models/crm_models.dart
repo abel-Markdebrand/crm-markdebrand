@@ -34,6 +34,7 @@ class CrmLead {
   final String? website;
   final String? priority;
   final List<String> tags;
+  final List<int> tagIds; // Added to handle Odoo tag IDs
   // Marketing
   final int? campaignId;
   final String? campaignName;
@@ -61,8 +62,8 @@ class CrmLead {
     this.function,
     this.website,
     this.priority,
-
     this.tags = const [],
+    this.tagIds = const [],
     this.campaignId,
     this.campaignName,
     this.mediumId,
@@ -103,6 +104,25 @@ class CrmLead {
     // To get names, we need a separate call or use 'search_read' with expanded fields?
     // Let's stick to safe defaults.
 
+    // Tags Parsing
+    List<String> tagNames = [];
+    List<int> tagIds = [];
+    if (json['tag_ids'] is List) {
+      for (var tag in json['tag_ids']) {
+        if (tag is List && tag.length > 1) {
+          tagIds.add(OdooUtils.safeInt(tag[0]));
+          tagNames.add(OdooUtils.safeString(tag[1]));
+        } else if (tag is Map && tag.containsKey('name')) {
+          tagIds.add(OdooUtils.safeInt(tag['id']));
+          tagNames.add(OdooUtils.safeString(tag['name']));
+        } else if (tag is int) {
+          tagIds.add(tag);
+        } else if (tag is String) {
+          tagNames.add(tag);
+        }
+      }
+    }
+
     return CrmLead(
       id: json['id'],
       name: OdooUtils.safeString(json['name']),
@@ -120,8 +140,8 @@ class CrmLead {
       function: OdooUtils.safeString(json['function']),
       website: OdooUtils.safeString(json['website']),
       priority: OdooUtils.safeString(json['priority']),
-      tags:
-          [], // Parsing tags is complex if they come as IDs. Leaving empty for now or implementing later.
+      tags: tagNames,
+      tagIds: tagIds,
       // Marketing Parsing (Many2one usually)
       campaignId: json['campaign_id'] is List
           ? json['campaign_id'][0]
@@ -138,8 +158,6 @@ class CrmLead {
           : (json['source_id'] is int ? json['source_id'] : null),
       sourceName: json['source_id'] is List ? json['source_id'][1] : null,
 
-      // Assuming 'x_niche' or similar. Using 'function' as a fallback if not found or just a placeholder name
-      // The user called it 'Niches', keys should be checked. For now we will try to read 'x_niche' if it exists, else null.
       niche: OdooUtils.safeString(json['x_niche'] ?? json['function']),
     );
   }

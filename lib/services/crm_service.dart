@@ -33,9 +33,7 @@ class CrmService {
       method: 'read_group',
       args: [],
       kwargs: {
-        'domain': [
-          ['type', '=', 'opportunity'],
-        ],
+        'domain': [], // Sin filtro de tipo para ver todos los registros
         'fields': ['stage_id'],
         'groupby': ['stage_id'],
       },
@@ -46,7 +44,13 @@ class CrmService {
       for (var group in result) {
         if (group['stage_id'] is List) {
           final id = group['stage_id'][0] as int;
-          final count = group['stage_id_count'] as int;
+          // Odoo read_group returns count as '<field>_count', 'crm_lead_count', or '__count' in newer versions
+          final count =
+              (group['stage_id_count'] ??
+                      group['crm_lead_count'] ??
+                      group['__count'] ??
+                      0)
+                  as int;
           counts[id] = count;
         }
       }
@@ -79,6 +83,7 @@ class CrmService {
           'function',
           'website',
           'priority',
+          'tag_ids', // Added tag_ids to fields
         ],
       },
     );
@@ -92,12 +97,49 @@ class CrmService {
   Future<List<CrmLead>> getPipeline(int stageId, {String? searchQuery}) async {
     final domain = [
       ['stage_id', '=', stageId],
-      ['type', '=', 'opportunity'],
+      // Removed ['type', '=', 'opportunity'] — some leads may not have this field set
+      // which was causing them not to appear in the pipeline.
     ];
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
       domain.add(['name', 'ilike', searchQuery]);
     }
+
+    final requestedFields = [
+      'id',
+      'name',
+      'partner_id',
+      'expected_revenue',
+      'probability',
+      'description',
+      'phone',
+      'email_from',
+      'street',
+      'city',
+      'zip',
+      'country_id',
+      'function',
+      'website',
+      'priority',
+    ];
+
+    // Verify fields exist in parallel to improve performance
+    final results = await Future.wait([
+      _odooService.fieldExists(
+        model: ApiRoutes.crm.model,
+        fieldName: 'x_niche',
+      ),
+      _odooService.fieldExists(
+        model: ApiRoutes.crm.model,
+        fieldName: 'tag_ids',
+      ),
+    ]);
+
+    final bool hasNiche = results[0];
+    final bool hasTags = results[1];
+
+    if (hasNiche) requestedFields.add('x_niche');
+    if (hasTags) requestedFields.add('tag_ids');
 
     final result = await _odooService.callKw(
       model: ApiRoutes.crm.model,
@@ -106,26 +148,11 @@ class CrmService {
       kwargs: {
         'context': {'bin_size': true},
         'domain': domain,
-        'fields': [
-          'id',
-          'name',
-          'partner_id',
-          'expected_revenue',
-          'probability',
-          'description',
-          'phone',
-          'email_from',
-          'street',
-          'city',
-          'zip',
-          'country_id',
-          'function',
-          'website',
-          'priority',
-        ],
-        'limit': 50,
+        'fields': requestedFields,
+        'limit': 200, // Aumentado para ver más Leads en producción
       },
     );
+
     return (result as List).map((json) => CrmLead.fromJson(json)).toList();
   }
 
@@ -253,58 +280,54 @@ class CrmService {
 
   /// Genera Factura
   Future<int?> generateInvoice(int orderId) async {
-    try {
-      final wizardId = await _odooService.callKw(
-        model: 'sale.advance.payment.inv', // Wizard model
-        method: ApiRoutes.sales.create,
-        args: [
-          {'advance_payment_method': 'delivered'},
-        ],
-        kwargs: {
-          'context': {
-            'active_model': ApiRoutes.sales.model,
-            'active_ids': [orderId],
-            'active_id': orderId,
-          },
+    final wizardId = await _odooService.callKw(
+      model: 'sale.advance.payment.inv',
+      method: ApiRoutes.sales.create,
+      args: [
+        {'advance_payment_method': 'delivered'},
+      ],
+      kwargs: {
+        'context': {
+          'active_model': ApiRoutes.sales.model,
+          'active_ids': [orderId],
+          'active_id': orderId,
         },
-      );
+      },
+    );
 
-      await _odooService.callKw(
-        model: 'sale.advance.payment.inv',
-        method: ApiRoutes
-            .sales
-            .createInvoices, // Usually 'create_invoices' on wizard
-        args: [wizardId],
-        kwargs: {
-          'context': {
-            'active_model': ApiRoutes.sales.model,
-            'active_ids': [orderId],
-            'active_id': orderId,
-          },
+    await _odooService.callKw(
+      model: 'sale.advance.payment.inv',
+      method: ApiRoutes.sales.createInvoices,
+      args: [
+        [wizardId],
+      ],
+      kwargs: {
+        'context': {
+          'active_model': ApiRoutes.sales.model,
+          'active_ids': [orderId],
+          'active_id': orderId,
         },
-      );
+      },
+    );
 
-      final orderRes = await _odooService.callKw(
-        model: ApiRoutes.sales.model,
-        method: 'read',
-        args: [
-          [orderId],
-        ],
-        kwargs: {
-          'fields': ['invoice_ids'],
-        },
-      );
+    final orderRes = await _odooService.callKw(
+      model: ApiRoutes.sales.model,
+      method: 'read',
+      args: [
+        [orderId],
+      ],
+      kwargs: {
+        'fields': ['invoice_ids'],
+      },
+    );
 
-      if (orderRes != null && (orderRes as List).isNotEmpty) {
-        final invoiceIds = orderRes[0]['invoice_ids'] as List;
-        if (invoiceIds.isNotEmpty) {
-          return invoiceIds.last as int;
-        }
+    if (orderRes != null && (orderRes as List).isNotEmpty) {
+      final invoiceIds = orderRes[0]['invoice_ids'] as List;
+      if (invoiceIds.isNotEmpty) {
+        return invoiceIds.last as int;
       }
-      return null;
-    } catch (e) {
-      return null;
     }
+    return null;
   }
 
   /// Publica la factura
@@ -315,5 +338,19 @@ class CrmService {
   /// Registra Pago (Mock)
   Future<void> registerPayment(int invoiceId) async {
     // Simulación
+  }
+
+  /// Obtiene los tags disponibles en Odoo
+  Future<List<Map<String, dynamic>>> getAvailableTags() async {
+    final result = await _odooService.callKw(
+      model: 'crm.tag',
+      method: ApiRoutes.auth.searchRead,
+      args: [],
+      kwargs: {
+        'fields': ['id', 'name', 'color'],
+        'order': 'name asc',
+      },
+    );
+    return (result as List).cast<Map<String, dynamic>>();
   }
 }

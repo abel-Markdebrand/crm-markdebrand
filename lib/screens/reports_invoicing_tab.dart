@@ -116,7 +116,7 @@ class _ReportsInvoicingTabState extends State<ReportsInvoicingTab> {
                 Switch(
                   value: true,
                   onChanged: (_) {},
-                  activeColor: Colors.green,
+                  activeTrackColor: Colors.green,
                 ),
               ],
             ),
