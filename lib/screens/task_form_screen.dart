@@ -79,7 +79,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
       for (int i = 0; i < uIds.length; i++) {
         if (uIds[i] is int) {
-          String name = "Asignado ${uIds[i]}";
+          String name = "Assigned ${uIds[i]}";
           if (i < uNames.length) {
             name = uNames[i].toString();
           } else if (uNames.isNotEmpty) {
@@ -224,7 +224,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Error al guardar la tarea. Revisa los permisos o campos obligatorios.',
+            'Error saving task. Check permissions or required fields.',
           ),
         ),
       );
@@ -236,7 +236,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       context: context,
       delegate: OdooSearchDelegate(
         searchFn: _projectService.searchUsers,
-        title: 'Asignar a...',
+        title: 'Assign to...',
       ),
     );
     if (user != null) {
@@ -271,7 +271,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       context: context,
       delegate: OdooSearchDelegate(
         searchFn: _projectService.searchTags,
-        title: 'Añadir etiqueta...',
+        title: 'Add tag...',
       ),
     );
     if (tag != null) {
@@ -296,7 +296,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           delegate: OdooSearchDelegate(
             searchFn: (query) =>
                 _projectService.searchMilestones(query, widget.project['id']),
-            title: 'Asignar hito...',
+            title: 'Assign milestone...',
           ),
         );
     if (milestone != null) {
@@ -312,7 +312,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          isEditing ? "Editar Tarea" : "Nueva Tarea",
+          isEditing ? "Edit Task" : "New Task",
           style: GoogleFonts.inter(
             color: const Color(0xFF0F172A),
             fontWeight: FontWeight.bold,
@@ -342,7 +342,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             TextButton(
               onPressed: _save,
               child: Text(
-                "Guardar",
+                "Save",
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF2563EB),
@@ -358,28 +358,28 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
-                  _buildSectionTitle("Detalles de la Tarea"),
+                  _buildSectionTitle("Task Details"),
                   const SizedBox(height: 16),
                   _buildTextField(
                     controller: _nameController,
-                    label: "Título de la Tarea",
-                    placeholder: "Ej: Revisar documentación",
+                    label: "Task Title",
+                    placeholder: "e.g., Review documentation",
                     validator: (v) =>
-                        v == null || v.isEmpty ? "Requerido" : null,
+                        v == null || v.isEmpty ? "Required" : null,
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
                     controller: _plannedHoursController,
-                    label: "Tiempo Asignado (Horas)",
+                    label: "Allocated Time (Hours)",
                     placeholder: "0.00",
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 24),
 
-                  _buildSectionTitle("Asignación y Estado"),
+                  _buildSectionTitle("Assignment & Status"),
                   const SizedBox(height: 16),
                   _buildMultiSelector(
-                    label: "Asignado a",
+                    label: "Assigned to",
                     values: _selectedUsers,
                     onTapAdd: _selectUser,
                     onRemove: _removeUser,
@@ -387,14 +387,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildSelector(
-                    label: "Hito (Milestone)",
-                    value: _selectedMilestone?['name'] ?? "No asignado",
+                    label: "Milestone",
+                    value: _selectedMilestone?['name'] ?? "Not assigned",
                     onTap: _selectMilestone,
                     icon: Icons.flag_circle_rounded,
                   ),
                   const SizedBox(height: 16),
                   _buildDropdown(
-                    label: "Etapa / Estado",
+                    label: "Stage / Status",
                     value: _stages.any((s) => s['id'] == _selectedStage?['id'])
                         ? _selectedStage!['id']
                         : (_stages.isNotEmpty ? _stages.first['id'] : null),
@@ -422,7 +422,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildMultiSelector(
-                    label: "Etiquetas",
+                    label: "Tags",
                     values: _selectedTags,
                     onTapAdd: _selectTag,
                     onRemove: _removeTag,
@@ -430,18 +430,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  _buildSectionTitle("Prioridad y Fecha"),
+                  _buildSectionTitle("Priority & Date"),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
                         child: _buildSelector(
-                          label: "Fecha Límite",
+                          label: "Deadline",
                           value: _selectedDeadline != null
                               ? DateFormat(
                                   'dd/MM/yyyy',
                                 ).format(_selectedDeadline!)
-                              : "Sin fecha",
+                              : "No date",
                           onTap: _selectDate,
                           icon: Icons.calendar_today_rounded,
                         ),
@@ -452,12 +452,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  _buildSectionTitle("Notas"),
+                  _buildSectionTitle("Notes"),
                   const SizedBox(height: 16),
                   _buildTextField(
                     controller: _descriptionController,
-                    label: "Descripción",
-                    placeholder: "Añade notas o detalles de la tarea...",
+                    label: "Description",
+                    placeholder: "Add notes or task details...",
                     maxLines: 5,
                   ),
                 ],
@@ -471,7 +471,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Prioridad",
+          "Priority",
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -605,8 +605,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       color:
-                          value.contains("Seleccionar") ||
-                              value.contains("Asignado")
+                          value.contains("Select") ||
+                              value.contains("Assigned")
                           ? const Color(0xFF94A3B8)
                           : const Color(0xFF0F172A),
                     ),
@@ -649,7 +649,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             TextButton.icon(
               onPressed: onTapAdd,
               icon: const Icon(Icons.add_circle_outline, size: 16),
-              label: Text("Añadir", style: GoogleFonts.inter(fontSize: 12)),
+              label: Text("Add", style: GoogleFonts.inter(fontSize: 12)),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF2563EB),
                 padding: EdgeInsets.zero,
@@ -677,7 +677,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      "No asignado",
+                      "Not assigned",
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         color: const Color(0xFF94A3B8),

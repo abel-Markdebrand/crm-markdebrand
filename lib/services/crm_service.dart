@@ -9,7 +9,7 @@ class CrmService {
   // CRM LOGIC
   // ---------------------------------------------------------------------------
 
-  /// Obtiene las etapas del pipeline CRM
+  /// Gets the CRM pipeline stages
   Future<List<CrmStage>> getPipelineStages() async {
     // Note: Stage model isn't in main config yet, adding here or hardcode specific
     final result = await _odooService.callKw(
@@ -26,14 +26,14 @@ class CrmService {
     return (result as List).map((json) => CrmStage.fromJson(json)).toList();
   }
 
-  /// Obtiene conteo de leads por etapa
+  /// Gets lead count per stage
   Future<Map<int, int>> getStageCounts() async {
     final result = await _odooService.callKw(
       model: ApiRoutes.crm.model,
       method: 'read_group',
       args: [],
       kwargs: {
-        'domain': [], // Sin filtro de tipo para ver todos los registros
+        'domain': [], // No type filter to see all records
         'fields': ['stage_id'],
         'groupby': ['stage_id'],
       },
@@ -58,7 +58,7 @@ class CrmService {
     return counts;
   }
 
-  /// Obtiene un Lead específico por ID
+  /// Gets a specific Lead by ID
   Future<CrmLead?> getLeadById(int leadId) async {
     final result = await _odooService.callKw(
       model: ApiRoutes.crm.model,
@@ -93,7 +93,7 @@ class CrmService {
     return null;
   }
 
-  /// Obtiene leads por etapa para el usuario actual (o todos si es demo/admin)
+  /// Gets leads by stage for the current user (or all if demo/admin)
   Future<List<CrmLead>> getPipeline(int stageId, {String? searchQuery}) async {
     final domain = [
       ['stage_id', '=', stageId],
@@ -149,14 +149,14 @@ class CrmService {
         'context': {'bin_size': true},
         'domain': domain,
         'fields': requestedFields,
-        'limit': 200, // Aumentado para ver más Leads en producción
+        'limit': 200, // Increased to see more Leads in production
       },
     );
 
     return (result as List).map((json) => CrmLead.fromJson(json)).toList();
   }
 
-  /// Actualiza los datos de un Lead (Cliente, Notas, etc.)
+  /// Updates Lead data (Customer, Notes, etc.)
   Future<void> updateLead(int leadId, Map<String, dynamic> vals) async {
     await _odooService.callKw(
       model: ApiRoutes.crm.model,
@@ -168,12 +168,12 @@ class CrmService {
     );
   }
 
-  /// Mover lead a otra etapa
+  /// Move lead to another stage
   Future<void> updateLeadStage(int leadId, int newStageId) async {
     await updateLead(leadId, {'stage_id': newStageId});
   }
 
-  /// Crea un nuevo Lead/Oportunidad
+  /// Creates a new Lead/Opportunity
   Future<int> createLead(Map<String, dynamic> vals) async {
     final result = await _odooService.callKw(
       model: ApiRoutes.crm.model,
@@ -187,7 +187,7 @@ class CrmService {
   // SALES LOGIC (Migrated from SalesService)
   // ---------------------------------------------------------------------------
 
-  /// Crea un pedido/presupuesto (Draft)
+  /// Creates a sale order/quotation (Draft)
   Future<int> createSaleOrder({
     required int partnerId,
     int? opportunityId,
@@ -198,12 +198,12 @@ class CrmService {
     );
   }
 
-  /// Agrega una línea al pedido
+  /// Adds a line to the order
   Future<int> addOrderLine(int orderId, int productId, double qty) async {
     return await _odooService.addOrderLine(orderId, productId, qty);
   }
 
-  /// Agrega línea con Nombre Personalizado
+  /// Adds a line with Custom Name
   Future<int> addOrderLineWithCustomName(
     int orderId,
     int productId,
@@ -225,7 +225,7 @@ class CrmService {
     return lineId as int;
   }
 
-  /// Obtiene las líneas de un pedido
+  /// Gets the lines of an order
   Future<List<dynamic>> getOrderLines(int orderId) async {
     final result = await _odooService.callKw(
       model: ApiRoutes.sales.lineModel,
@@ -247,12 +247,12 @@ class CrmService {
     return result as List<dynamic>;
   }
 
-  /// Confirma la venta
+  /// Confirms the sale
   Future<void> confirmSale(int orderId) async {
     await _odooService.confirmSale(orderId);
   }
 
-  /// Actualiza 'qty_delivered'
+  /// Updates 'qty_delivered'
   Future<void> updateLineDeliveredQty(int lineId, double qty) async {
     await _odooService.callKw(
       model: ApiRoutes.sales.lineModel,
@@ -264,7 +264,7 @@ class CrmService {
     );
   }
 
-  /// Establece todas las líneas como entregadas
+  /// Sets all lines as delivered
   Future<void> setAllLinesDelivered(int orderId) async {
     final lines = await getOrderLines(orderId);
     for (var line in lines) {
@@ -273,12 +273,12 @@ class CrmService {
       try {
         await updateLineDeliveredQty(lineId, orderedQty);
       } catch (e) {
-        // Ignorar errores menores de actualización
+        // Ignore minor update errors
       }
     }
   }
 
-  /// Genera Factura
+  /// Generates Invoice
   Future<int?> generateInvoice(int orderId) async {
     final wizardId = await _odooService.callKw(
       model: 'sale.advance.payment.inv',
@@ -330,17 +330,17 @@ class CrmService {
     return null;
   }
 
-  /// Publica la factura
+  /// Posts the invoice
   Future<void> postInvoice(int invoiceId) async {
     await _odooService.postInvoice(invoiceId);
   }
 
-  /// Registra Pago (Mock)
+  /// Registers Payment (Mock)
   Future<void> registerPayment(int invoiceId) async {
-    // Simulación
+    // Simulation
   }
 
-  /// Obtiene los tags disponibles en Odoo
+  /// Gets available tags in Odoo
   Future<List<Map<String, dynamic>>> getAvailableTags() async {
     final result = await _odooService.callKw(
       model: 'crm.tag',

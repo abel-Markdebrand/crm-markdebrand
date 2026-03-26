@@ -101,7 +101,7 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
         }
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error al guardar: $errorMsg')));
+        ).showSnackBar(SnackBar(content: Text('Error saving: $errorMsg')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -114,7 +114,7 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          widget.applicant == null ? "Nuevo Aplicante" : "Editar Aplicante",
+          widget.applicant == null ? "New Applicant" : "Edit Applicant",
           style: const TextStyle(
             color: Color(0xFF0F172A),
             fontWeight: FontWeight.bold,
@@ -130,10 +130,10 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
             TextButton(
               onPressed: _save,
               child: const Text(
-                "GUARDAR",
+                "SAVE",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF14B8A6), // Teal
+                  color: Color(0xFF007AFF), // Markdebrand Blue
                   fontFamily: 'Nexa',
                 ),
               ),
@@ -149,30 +149,30 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionTitle("Estado de Aplicación"),
+                    _buildSectionTitle("Application Status"),
                     const SizedBox(height: 16),
                     _buildStageField(),
                     const SizedBox(height: 32),
-                    _buildSectionTitle("Información de la Vacante"),
+                    _buildSectionTitle("Vacancy Information"),
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _nameController,
-                      label: "Asunto / Título de Aplicación",
+                      label: "Subject / Application Title",
                       icon: Icons.title_rounded,
                       validator: (v) =>
-                          v == null || v.isEmpty ? "Requerido" : null,
+                          v == null || v.isEmpty ? "Required" : null,
                     ),
                     const SizedBox(height: 20),
                     _buildDropdownField(),
                     const SizedBox(height: 32),
-                    _buildSectionTitle("Información del Candidato"),
+                    _buildSectionTitle("Candidate Information"),
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _candidateNameController,
-                      label: "Nombre del Candidato",
+                      label: "Candidate Name",
                       icon: Icons.person_outline_rounded,
                       validator: (v) =>
-                          v == null || v.isEmpty ? "Requerido" : null,
+                          v == null || v.isEmpty ? "Required" : null,
                     ),
                     const SizedBox(height: 20),
                     _buildTextField(
@@ -184,7 +184,7 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
                     const SizedBox(height: 20),
                     _buildTextField(
                       controller: _phoneController,
-                      label: "Móvil",
+                      label: "Mobile",
                       icon: Icons.phone_iphone_rounded,
                       keyboardType: TextInputType.phone,
                     ),
@@ -237,9 +237,9 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
     return DropdownButtonFormField<int>(
       initialValue:
           _jobs.any((j) => j.id == _selectedJobId) ? _selectedJobId : null,
-      validator: (v) => v == null ? "Puesto requerido" : null,
+      validator: (v) => v == null ? "Position required" : null,
       decoration: InputDecoration(
-        labelText: "Puesto de Trabajo",
+        labelText: "Job Position",
         prefixIcon: const Icon(Icons.work_outline_rounded, size: 20),
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
@@ -267,7 +267,7 @@ class _RecruitmentFormScreenState extends State<RecruitmentFormScreen> {
           ? _selectedStageId
           : null,
       decoration: InputDecoration(
-        labelText: "Etapa en Pipeline",
+        labelText: "Pipeline Stage",
         prefixIcon: const Icon(Icons.view_kanban_outlined, size: 20),
         filled: true,
         fillColor: const Color(0xFFF8FAFC),

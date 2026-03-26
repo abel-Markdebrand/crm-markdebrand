@@ -60,7 +60,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       initialDate: _selectedMonth,
       firstDate: DateTime(2023),
       lastDate: DateTime(2030),
-      helpText: 'SELECCIONAR MES',
+      helpText: 'SELECT MONTH',
       initialDatePickerMode: DatePickerMode.year,
     );
     if (picked != null &&
@@ -118,15 +118,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: Image.asset(
-                'assets/image/logo_mdb.png',
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset('assets/image/logo.png', fit: BoxFit.contain),
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            "Asistencias",
+            "Attendances",
             style: GoogleFonts.inter(
               color: const Color(0xFF0F172A),
               fontWeight: FontWeight.bold,
@@ -207,7 +204,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                "No hay registros este mes",
+                "No records this month",
                 style: GoogleFonts.inter(
                   color: const Color(0xFF94A3B8),
                   fontWeight: FontWeight.w500,
@@ -303,7 +300,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "ENTRADA",
+                    "CHECK IN",
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -337,7 +334,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "SALIDA",
+                    "CHECK OUT",
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -368,7 +365,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "HORAS",
+                    "HOURS",
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -403,7 +400,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 children: [
                   if (workedExtraHours > 0)
                     _buildExtraMetric(
-                      "EX. TRAB.",
+                      "EX. WORK",
                       workedExtraHours,
                       const Color(0xFF10B981),
                     ),

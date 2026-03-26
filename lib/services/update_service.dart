@@ -8,7 +8,7 @@ class UpdateService {
   UpdateService._internal();
 
   final String _androidUrl =
-      "https://play.google.com/store/apps/details?id=com.markdebrand.crm";
+      "https://play.google.com/store/apps/details?id=com.markdebrand.crm"; // Package ID remains for compatibility
   final String _iOSUrl = "https://apps.apple.com/app/id123456789";
 
   Future<void> checkForUpdate(BuildContext context) async {

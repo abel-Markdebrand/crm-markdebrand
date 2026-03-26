@@ -39,7 +39,7 @@ class LeadDetailScreen extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: Image.asset(
-                      'assets/image/logo_mdb.png',
+                      'assets/image/logo.png',
                       fit: BoxFit.contain,
                     ),
                   ),

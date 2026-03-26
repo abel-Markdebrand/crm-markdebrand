@@ -10,6 +10,10 @@ class Employee {
   final int? departmentId;
   final String? departmentName;
   final String? image1920;
+  final String? image1024;
+  final String? image512;
+  final String? image256;
+  final String? image128;
   final int? parentId; // Manager
   final String? parentName;
   final int? coachId;
@@ -55,6 +59,10 @@ class Employee {
     this.departmentId,
     this.departmentName,
     this.image1920,
+    this.image1024,
+    this.image512,
+    this.image256,
+    this.image128,
     this.parentId,
     this.parentName,
     this.coachId,
@@ -82,6 +90,16 @@ class Employee {
     this.visaExpire,
     this.workPermitExpiration,
   });
+
+  String? getBestImage() {
+    final images = [image1920, image1024, image512, image256, image128];
+    for (var img in images) {
+      if (img != null && img.isNotEmpty && img != 'false') {
+        return img;
+      }
+    }
+    return null;
+  }
 
   factory Employee.fromJson(Map<String, dynamic> json) {
     int? deptId;
@@ -127,6 +145,10 @@ class Employee {
       departmentId: deptId,
       departmentName: deptName,
       image1920: OdooUtils.safeString(json['image_1920']),
+      image1024: OdooUtils.safeString(json['image_1024']),
+      image512: OdooUtils.safeString(json['image_512']),
+      image256: OdooUtils.safeString(json['image_256']),
+      image128: OdooUtils.safeString(json['image_128']),
       parentId: mgrId,
       parentName: mgrName,
       coachId: cchId,

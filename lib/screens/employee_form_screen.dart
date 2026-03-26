@@ -96,7 +96,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
       text: widget.employee?.identificationId,
     );
     _nationalityController = TextEditingController(
-      text: widget.employee?.nationality ?? 'Española',
+      text: widget.employee?.nationality ?? 'Spanish',
     );
     _placeOfBirthController = TextEditingController(
       text: widget.employee?.placeOfBirth,
@@ -281,7 +281,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al guardar: $e'),
+            content: Text('Error saving: $e'),
             backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
           ),
@@ -298,7 +298,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
       backgroundColor: _bgLight,
       appBar: AppBar(
         title: Text(
-          widget.employee == null ? "Nuevo Empleado" : "Perfil del Empleado",
+          widget.employee == null ? "New Employee" : "Employee Profile",
           style: GoogleFonts.inter(
             color: _slate900,
             fontWeight: FontWeight.bold,
@@ -333,9 +333,9 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
                 fontWeight: FontWeight.w600,
               ),
               tabs: const [
-                Tab(text: "Trabajo"),
+                Tab(text: "Work"),
                 Tab(text: "Personal"),
-                Tab(text: "Contrato"),
+                Tab(text: "Contract"),
               ],
             ),
           ),
@@ -390,7 +390,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  _tabController.index < 2 ? "Continuar" : "Guardar Empleado",
+                  _tabController.index < 2 ? "Continue" : "Save Employee",
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -415,31 +415,31 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
         children: [
           _buildProfileImageHeader(),
           const SizedBox(height: 32),
-          _buildSectionHeader("Información del Puesto"),
+          _buildSectionHeader("Job Information"),
           const SizedBox(height: 24),
           _buildTextField(
             controller: _nameController,
-            label: "Nombre Completo",
-            hint: "Introduce nombre completo",
+            label: "Full Name",
+            hint: "Enter full name",
             isRequired: true,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _jobController,
-            label: "Título del Puesto",
-            hint: "Ej. Especialista en Marketing",
+            label: "Job Title",
+            hint: "e.g. Marketing Specialist",
           ),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: _buildDropdownField<String>(
-                  label: "Género",
+                  label: "Gender",
                   value: _selectedGender,
                   items: const [
-                    DropdownMenuItem(value: 'male', child: Text('Masculino')),
-                    DropdownMenuItem(value: 'female', child: Text('Femenino')),
-                    DropdownMenuItem(value: 'other', child: Text('Otro')),
+                    DropdownMenuItem(value: 'male', child: Text('Male')),
+                    DropdownMenuItem(value: 'female', child: Text('Female')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
                   ],
                   onChanged: (v) => setState(() => _selectedGender = v),
                 ),
@@ -447,7 +447,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               const SizedBox(width: 16),
               Expanded(
                 child: _buildDropdownField<int>(
-                  label: "Departamento",
+                  label: "Department",
                   value: _departments.any((d) => d.id == _selectedDepartmentId)
                       ? _selectedDepartmentId
                       : null,
@@ -467,7 +467,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
             children: [
               Expanded(
                 child: _buildDropdownField<int>(
-                  label: "Gerente / Responsable",
+                  label: "Manager / Supervisor",
                   value: _allEmployees.any((e) => e.id == _selectedManagerId)
                       ? _selectedManagerId
                       : null,
@@ -483,7 +483,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               const SizedBox(width: 16),
               Expanded(
                 child: _buildDropdownField<int>(
-                  label: "Entrenador / Coach",
+                  label: "Coach",
                   value: _allEmployees.any((e) => e.id == _selectedCoachId)
                       ? _selectedCoachId
                       : null,
@@ -499,13 +499,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
             ],
           ),
           const SizedBox(height: 40),
-          _buildSectionHeader("Contacto de Trabajo"),
+          _buildSectionHeader("Work Contact"),
           const SizedBox(height: 24),
           _buildTextField(
             controller: _workEmailController,
-            label: "Email de Trabajo",
+            label: "Work Email",
             prefixIcon: Icons.mail_outline,
-            hint: "ejemplo@empresa.com",
+            hint: "example@company.com",
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 16),
@@ -514,7 +514,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               Expanded(
                 child: _buildTextField(
                   controller: _mobilePhoneController,
-                  label: "Teléfono Móvil",
+                  label: "Mobile Phone",
                   prefixIcon: Icons.smartphone,
                   hint: "+34 600 000 000",
                   keyboardType: TextInputType.phone,
@@ -524,7 +524,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               Expanded(
                 child: _buildTextField(
                   controller: _workPhoneController,
-                  label: "Teléfono Fijo",
+                  label: "Work Phone",
                   prefixIcon: Icons.call,
                   hint: "+34 910 000 000",
                   keyboardType: TextInputType.phone,
@@ -545,22 +545,22 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(
-            "Información Personal",
+            "Personal Information",
             icon: Icons.person_outline,
           ),
           const SizedBox(height: 24),
           _buildDropdownField<String>(
-            label: "Estado Civil",
+            label: "Marital Status",
             value: _selectedMarital,
             items: const [
-              DropdownMenuItem(value: 'single', child: Text('Soltero/a')),
-              DropdownMenuItem(value: 'married', child: Text('Casado/a')),
-              DropdownMenuItem(value: 'divorced', child: Text('Divorciado/a')),
+              DropdownMenuItem(value: 'single', child: Text('Single')),
+              DropdownMenuItem(value: 'married', child: Text('Married')),
+              DropdownMenuItem(value: 'divorced', child: Text('Divorced')),
               DropdownMenuItem(
                 value: 'cohabitant',
-                child: Text('Pareja de hecho'),
+                child: Text('Legal Cohabitant'),
               ),
-              DropdownMenuItem(value: 'widower', child: Text('Viudo/a')),
+              DropdownMenuItem(value: 'widower', child: Text('Widower')),
             ],
             onChanged: (v) => setState(() => _selectedMarital = v),
           ),
@@ -569,29 +569,29 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
           const SizedBox(height: 16),
           _buildTextField(
             controller: _placeOfBirthController,
-            label: "Lugar de Nacimiento",
-            hint: "Ej: Madrid, España",
+            label: "Place of Birth",
+            hint: "e.g. Madrid, Spain",
           ),
           const SizedBox(height: 16),
           _buildDateField(
             controller: _birthdayController,
-            label: "Fecha de Nacimiento",
+            label: "Date of Birth",
           ),
           const SizedBox(height: 40),
           _buildSectionHeader(
-            "Ciudadanía e Identificación",
+            "Citizenship & ID",
             icon: Icons.public,
           ),
           const SizedBox(height: 24),
           _buildTextField(
             controller: _nationalityController,
-            label: "Nacionalidad",
+            label: "Nationality",
             readOnly: true,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _idNumberController,
-            label: "NIF / NIE / Pasaporte",
+            label: "Tax ID / Passport",
             hint: "00000000X",
             textCapitalization: TextCapitalization.characters,
           ),
@@ -599,69 +599,69 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
           _buildSectionHeader("Educación", icon: Icons.school_outlined),
           const SizedBox(height: 24),
           _buildDropdownField<String>(
-            label: "Nivel de Estudios",
+            label: "Certificate Level",
             value: _selectedCertificate,
             items: const [
               DropdownMenuItem(
                 value: 'graduate',
-                child: Text('Grado Universitario'),
+                child: Text('Bachelor Degree'),
               ),
               DropdownMenuItem(
                 value: 'master',
-                child: Text('Máster / Postgrado'),
+                child: Text('Master / Postgrad'),
               ),
-              DropdownMenuItem(value: 'bachelor', child: Text('Bachillerato')),
-              DropdownMenuItem(value: 'doctor', child: Text('Doctorado')),
-              DropdownMenuItem(value: 'other', child: Text('Otro')),
+              DropdownMenuItem(value: 'bachelor', child: Text('High School')),
+              DropdownMenuItem(value: 'doctor', child: Text('Doctorate')),
+              DropdownMenuItem(value: 'other', child: Text('Other')),
             ],
             onChanged: (v) => setState(() => _selectedCertificate = v),
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _studyFieldController,
-            label: "Campo de Estudio / Carrera",
-            hint: "Ej: Ingeniería de Software",
+            label: "Field of Study",
+            hint: "e.g. Software Engineering",
           ),
           const SizedBox(height: 40),
           _buildSectionHeader(
-            "Contacto Privado",
+            "Private Contact",
             icon: Icons.contact_mail_outlined,
           ),
           const SizedBox(height: 24),
           _buildTextField(
             controller: _privateEmailController,
-            label: "Email Privado",
+            label: "Private Email",
             hint: "nombre@personal.com",
             keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _privatePhoneController,
-            label: "Teléfono Privado",
+            label: "Private Phone",
             hint: "+34 600 000 000",
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _bankAccountController,
-            label: "Nº Cuenta Bancaria (IBAN)",
+            label: "Bank Account (IBAN)",
             readOnly: true,
           ),
           const SizedBox(height: 40),
           _buildSectionHeader(
-            "Contacto de Emergencia",
+            "Emergency Contact",
             icon: Icons.emergency_outlined,
           ),
           const SizedBox(height: 24),
           _buildTextField(
             controller: _emergencyContactController,
-            label: "Nombre del Contacto",
-            hint: "Nombre completo",
+            label: "Contact Name",
+            hint: "Full name",
           ),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _emergencyPhoneController,
-            label: "Teléfono de Emergencia",
+            label: "Emergency Phone",
             hint: "+34 600 000 000",
             keyboardType: TextInputType.phone,
           ),
@@ -678,13 +678,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(
-            "Datos del Contrato",
+            "Contract Details",
             icon: Icons.description_outlined,
           ),
           const SizedBox(height: 24),
           _buildTextField(
             controller: _wageController,
-            label: "Salario Mensual Bruto",
+            label: "Monthly Gross Wage",
             hint: "0.00",
             prefixIcon: Icons.payments_outlined,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -694,7 +694,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
             children: [
               Expanded(
                 child: _buildDropdownField<int>(
-                  label: "Tipo de Contrato",
+                  label: "Contract Type",
                   value:
                       _contractTypes.any(
                         (t) => t['id'] == _selectedContractTypeId,
@@ -715,7 +715,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               const SizedBox(width: 16),
               Expanded(
                 child: _buildDropdownField<int>(
-                  label: "Categoría de Nómina",
+                  label: "Salary Structure Type",
                   value:
                       _structureTypes.any(
                         (s) => s['id'] == _selectedStructureTypeId,
@@ -738,7 +738,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
           ),
           const SizedBox(height: 40),
           _buildSectionHeader(
-            "Vigencia del Contrato",
+            "Contract Dates",
             icon: Icons.calendar_today_outlined,
           ),
           const SizedBox(height: 24),
@@ -747,26 +747,26 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen>
               Expanded(
                 child: _buildDateField(
                   controller: _contractDateStartController,
-                  label: "Fecha de Inicio",
+                  label: "Start Date",
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: _buildDateField(
                   controller: _contractDateEndController,
-                  label: "Fecha de Fin",
+                  label: "End Date",
                 ),
               ),
             ],
           ),
           const SizedBox(height: 40),
           _buildSectionHeader(
-            "Horario de Trabajo",
+            "Working Hours",
             icon: Icons.schedule_outlined,
           ),
           const SizedBox(height: 24),
           _buildDropdownField<int>(
-            label: "Jornada / Horario",
+            label: "Working Schedule",
             value:
                 _workingHoursList.any((w) => w['id'] == _selectedWorkingHoursId)
                 ? _selectedWorkingHoursId

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:mvp_odoo/utils/odoo_utils.dart';
 import '../services/crm_service.dart';
 import '../services/odoo_service.dart';
 import '../models/crm_models.dart';
@@ -223,7 +224,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No se pudo abrir el marcador")),
+          const SnackBar(content: Text("Could not open dialer")),
         );
       }
     }
@@ -294,14 +295,15 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text("Guardado exitosamente")));
+        ).showSnackBar(const SnackBar(content: Text("Saved successfully")));
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
+        final friendlyMsg = OdooUtils.getFriendlyError(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Error al guardar: $e"),
+            content: Text(friendlyMsg),
             backgroundColor: Colors.red,
           ),
         );
@@ -374,7 +376,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SearchableDropdown<String>(
-            label: "Nombre Oportunidad *",
+            label: "Opportunity Name *",
             value: _selectedOpportunityName,
             items: _opportunityNames,
             itemLabel: (s) => s,
@@ -384,13 +386,13 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
           ),
           const SizedBox(height: 16),
           _buildTextField(
-            'Ingreso Esperado',
+            'Expected Revenue',
             _revenueController,
             inputType: TextInputType.number,
           ),
           const SizedBox(height: 16),
           Text(
-            "Probabilidad",
+            "Probability",
             style: const TextStyle(
               fontFamily: 'Nexa',
               fontSize: 12,
@@ -410,7 +412,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "Probabilidad de cierre",
+                  "Closing probability",
                   style: TextStyle(
                     fontFamily: 'Nexa',
                     fontSize: 14,
@@ -431,16 +433,16 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
           ),
           const SizedBox(height: 16),
           SearchableDropdown<String>(
-            label: "Niches (Sector)",
+            label: "Niches (Industry)",
             value: _selectedNiche,
             items: _niches,
             itemLabel: (s) => s,
             onChanged: (val) => setState(() => _selectedNiche = val),
-            hint: "Seleccionar Nicho",
+            hint: "Select Niche",
           ),
           const SizedBox(height: 16),
           Text(
-            "Etapa",
+            "Stage",
             style: const TextStyle(
               fontFamily: 'Nexa',
               fontSize: 12,
@@ -458,11 +460,11 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
                 .firstWhere(
                   (s) => s.id == id,
                   orElse: () =>
-                      CrmStage(id: id, name: "Desconocido", sequence: 999),
+                      CrmStage(id: id, name: "Unknown", sequence: 999),
                 )
                 .name,
             onChanged: (val) => setState(() => _selectedStageId = val),
-            hint: "Seleccione Etapa",
+            hint: "Select Stage",
           ),
           const SizedBox(height: 80),
         ],
@@ -477,7 +479,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Cliente (Partner)",
+            "Client (Partner)",
             style: const TextStyle(
               fontFamily: 'Nexa',
               fontSize: 12,
@@ -508,7 +510,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
                 return [];
               }
             },
-            itemLabel: (item) => item['name'] ?? "Desconocido",
+            itemLabel: (item) => item['name'] ?? "Unknown",
             onChanged: (val) {
               if (val != null) {
                 setState(() {
@@ -525,11 +527,11 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
                 });
               }
             },
-            hint: "Buscar Cliente...",
+            hint: "Search Client...",
             icon: Icons.search,
           ),
           const SizedBox(height: 16),
-          _buildTextField('Nombre Contacto', _contactNameController),
+          _buildTextField('Contact Name', _contactNameController),
           const SizedBox(height: 16),
           _buildTextField(
             'Email',
@@ -537,14 +539,14 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
             inputType: TextInputType.emailAddress,
             validator: (v) {
               if (v != null && v.isNotEmpty && !v.contains('@')) {
-                return 'Email inválido';
+                return 'Invalid email';
               }
               return null;
             },
           ),
           const SizedBox(height: 16),
           _buildTextField(
-            'Teléfono / Móvil',
+            'Phone / Mobile',
             _phoneController,
             inputType: TextInputType.phone,
             suffixIcon: IconButton(
@@ -565,7 +567,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "NOTAS INTERNAS",
+            "INTERNAL NOTES",
             style: const TextStyle(
               fontFamily: 'Nexa',
               fontSize: 12,
@@ -579,7 +581,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
             maxLines: 10,
             decoration: InputDecoration(
               hintText:
-                  "Escribe aquí los detalles de la reunión, requerimientos del cliente, etc.",
+                  "Write meeting details, client requirements, etc. here",
               hintStyle: const TextStyle(
                 fontFamily: 'Nexa',
                 color: Color(0xFF94A3B8),
@@ -617,7 +619,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SearchableDropdown<String>(
-            label: "Campaña (Campaign)",
+            label: "Campaign",
             value: _selectedCampaignKey,
             items: _campaigns,
             itemLabel: (s) => s,
@@ -645,12 +647,12 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
           const SizedBox(height: 16),
           // Tags
           SearchableDropdown<String>(
-            label: "Etiquetas (Tags - Viabilidad)",
+            label: "Tags (Viability)",
             value: _selectedTag,
             items: _tags,
             itemLabel: (s) => s,
             onChanged: (val) => setState(() => _selectedTag = val),
-            hint: "Viable / No Viable",
+            hint: "Viable / Not Viable",
           ),
           const SizedBox(height: 80),
         ],
@@ -682,7 +684,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
                         widget.lead?.partnerId == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("Asigne un Cliente primero"),
+                          content: Text("Assign a Client first"),
                         ),
                       );
                       return;
@@ -703,7 +705,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
                     );
                   },
                   icon: const Icon(Icons.receipt_long),
-                  label: const Text("FACTURAR"),
+                  label: const Text("BILL"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF59E0B),
                     foregroundColor: Colors.white,
@@ -728,7 +730,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
                         ),
                       )
                     : const Icon(Icons.save),
-                label: Text(_isSaving ? "GUARDANDO..." : "GUARDAR"),
+                label: Text(_isSaving ? "SAVING..." : "SAVE"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0D59F2),
                   foregroundColor: Colors.white,
@@ -763,7 +765,7 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            widget.lead == null ? "Nueva Oportunidad" : "Editar Oportunidad",
+            widget.lead == null ? "New Opportunity" : "Edit Opportunity",
             style: const TextStyle(
               fontFamily: 'CenturyGothic',
               color: Color(0xFF1E293B),
@@ -775,10 +777,10 @@ class _LeadFormScreenState extends State<LeadFormScreen> {
             unselectedLabelColor: Color(0xFF64748B),
             indicatorColor: Color(0xFF0D59F2),
             tabs: [
-              Tab(text: "Negocio"),
-              Tab(text: "Contacto"),
+              Tab(text: "Business"),
+              Tab(text: "Contact"),
               Tab(text: "Marketing"),
-              Tab(text: "Notas"),
+              Tab(text: "Notes"),
             ],
           ),
         ),

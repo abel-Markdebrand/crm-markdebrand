@@ -44,12 +44,12 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Venta Confirmada')));
+          ).showSnackBar(const SnackBar(content: Text('Sale Confirmed')));
         }
       } catch (e) {
         final errorString = e.toString().toLowerCase();
         if (errorString.contains("state requiring confirmation") ||
-            errorString.contains("ya confirmado")) {
+            errorString.contains("already confirmed")) {
           // Ignore
         } else {
           rethrow;
@@ -62,7 +62,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
       final invoiceId = await _crmService.generateInvoice(widget.orderId!);
       if (invoiceId == null) {
         throw Exception(
-          "No se generó factura (Verifique política de facturación)",
+          "No invoice generated (Check invoicing policy)",
         );
       }
 
@@ -71,7 +71,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Factura Publicada')));
+        ).showSnackBar(const SnackBar(content: Text('Invoice Posted')));
       }
 
       // 4. Pago
@@ -79,7 +79,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Pago Registrado')));
+        ).showSnackBar(const SnackBar(content: Text('Payment Registered')));
 
         // RUTEO A LA FACTURA FINAL EN LUGAR DE SALIR
         Navigator.pushReplacement(
@@ -93,7 +93,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error en flujo: $e')));
+        ).showSnackBar(SnackBar(content: Text('Workflow error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -104,7 +104,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Confirmar Venta #${widget.orderId ?? "N/A"}'),
+        title: Text('Confirm Sale #${widget.orderId ?? "N/A"}'),
       ),
       body: Column(
         children: [
@@ -113,7 +113,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
             padding: const EdgeInsets.all(16),
             color: Colors.blue[50],
             width: double.infinity,
-            child: const Text("Revise los ítems y confirme la factura."),
+            child: const Text("Review items and confirm the invoice."),
           ),
 
           const Divider(height: 1),
@@ -121,16 +121,16 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
           // LISTA DE PRODUCTOS
           Expanded(
             child: _orderLines.isEmpty
-                ? const Center(child: Text('Cargando productos...'))
+                ? const Center(child: Text('Loading products...'))
                 : ListView.builder(
                     itemCount: _orderLines.length,
                     itemBuilder: (context, index) {
                       final line = _orderLines[index];
                       return ListTile(
                         leading: CircleAvatar(child: Text("${index + 1}")),
-                        title: Text(line['name'] ?? 'Producto'),
+                        title: Text(line['name'] ?? 'Product'),
                         subtitle: Text(
-                          "Cant: ${line['product_uom_qty']} x \$${line['price_unit']} = \$${line['price_subtotal']}",
+                          "Qty: ${line['product_uom_qty']} x \$${line['price_unit']} = \$${line['price_subtotal']}",
                         ),
                       );
                     },
@@ -151,7 +151,7 @@ class _SalesFormScreenState extends State<SalesFormScreen> {
                 onPressed: _isLoading ? null : _confirmAndInvoice,
                 icon: const Icon(Icons.check_circle),
                 label: Text(
-                  _isLoading ? "Procesando..." : "CONFIRMAR Y FACTURAR",
+                  _isLoading ? "Processing..." : "CONFIRM AND INVOICE",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),

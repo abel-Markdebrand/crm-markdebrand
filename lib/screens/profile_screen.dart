@@ -84,43 +84,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
-
   Future<void> _saveChanges() async {
     setState(() => _isSaving = true);
     try {
       final odoo = OdooService.instance;
 
-      // Update User Preferences (res.users)
-      final userSuccess = await odoo.updateUserPreferences({
-        'lang': _selectedLang,
-        'notification_type': _selectedNotification,
-        'attendance_pin': _pinController.text,
-        'signature': _signatureController.text.isNotEmpty
+      // 1. Change detection for res.users
+      final Map<String, dynamic> userPrefs = {};
+      
+      if (_selectedLang != _userData['lang']) {
+        userPrefs['lang'] = _selectedLang;
+      }
+      if (_selectedNotification != _userData['notification_type']) {
+        userPrefs['notification_type'] = _selectedNotification;
+      }
+      
+      final currentSignature = _parseSignature(_userData['signature']);
+      if (_signatureController.text != currentSignature) {
+        userPrefs['signature'] = _signatureController.text.isNotEmpty
             ? '<span>${_signatureController.text}</span>'
-            : '',
-      });
+            : '';
+      }
 
-      // Update Partner Preferences (res.partner)
-      final partnerSuccess = await odoo.updatePartnerPreferences({
-        'name': _nameController.text,
-        'phone': _phoneController.text,
-        'mobile': _mobileController.text,
-      });
+      if (_userData.containsKey('attendance_pin')) {
+        final currentPin = OdooUtils.safeString(_userData['attendance_pin']);
+        if (_pinController.text != currentPin) {
+          userPrefs['attendance_pin'] = _pinController.text;
+        }
+      }
+
+      // 2. Change detection for res.partner
+      final Map<String, dynamic> partnerPrefs = {};
+      
+      if (_nameController.text != OdooUtils.safeString(_userData['name'])) {
+        partnerPrefs['name'] = _nameController.text;
+      }
+      if (_phoneController.text != OdooUtils.safeString(_userData['phone'])) {
+        partnerPrefs['phone'] = _phoneController.text;
+      }
+      if (_mobileController.text != OdooUtils.safeString(_userData['mobile'])) {
+        partnerPrefs['mobile'] = _mobileController.text;
+      }
+
+      if (userPrefs.isEmpty && partnerPrefs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("No changes to save")),
+          );
+        }
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      // Update User Preferences (res.users) if changed
+      bool userSuccess = true;
+      if (userPrefs.isNotEmpty) {
+        userSuccess = await odoo.updateUserPreferences(userPrefs);
+      }
+
+      // Update Partner Preferences (res.partner) if changed
+      bool partnerSuccess = true;
+      if (partnerPrefs.isNotEmpty) {
+        partnerSuccess = await odoo.updatePartnerPreferences(partnerPrefs);
+      }
 
       if (mounted) {
         if (userSuccess && partnerSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Ajustes guardados correctamente")),
+            const SnackBar(content: Text("Settings saved successfully")),
           );
-          _loadProfile(); // Refresh
+          _loadProfile(); // Refresh cache and fields
         } else {
-          throw Exception("Error parcial al guardar");
+          throw Exception("Partial error saving");
         }
       }
     } catch (e) {
       if (mounted) {
+        final friendlyMsg = OdooUtils.getFriendlyError(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyMsg), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -151,12 +193,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Foto de perfil actualizada")),
+            const SnackBar(content: Text("Profile picture updated")),
           );
           _loadProfile(); // Refresh
         }
       } else {
-        throw Exception("Error al actualizar la foto");
+        throw Exception("Error updating photo");
       }
     } catch (e) {
       if (mounted) {
@@ -180,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          "Configuración de Perfil",
+          "Profile Settings",
           style: TextStyle(
             color: kTextMain,
             fontWeight: FontWeight.bold,
@@ -206,7 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       )
                     : Text(
-                        "GUARDAR",
+                        "SAVE",
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
@@ -276,9 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ],
                                 ),
                                 child: ClipOval(
-                                  child: _buildAvatarImage(
-                                    _userData['image_1920'],
-                                  ),
+                                  child: _buildAvatarImage(_userData),
                                 ),
                               ),
                             ),
@@ -333,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Text(
                             OdooUtils.safeString(
-                              _userData['function'] ?? "Empleado",
+                              _userData['function'] ?? "Employee",
                             ).toUpperCase(),
                             style: const TextStyle(
                               fontSize: 10,
@@ -370,7 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                "DETALLES DE LA CUENTA",
+                                "ACCOUNT DETAILS",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -382,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(height: 20),
                               _buildEditableDetailRow(
                                 Icons.email_outlined,
-                                "Correo Electrónico",
+                                "Email Address",
                                 _userData['login'] ?? "",
                                 readOnly: true,
                               ),
@@ -392,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               _buildEditableDetailRow(
                                 Icons.phone_outlined,
-                                "Teléfono",
+                                "Phone",
                                 "",
                                 controller: _phoneController,
                               ),
@@ -402,7 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               _buildEditableDetailRow(
                                 Icons.smartphone,
-                                "Móvil",
+                                "Mobile",
                                 "",
                                 controller: _mobileController,
                               ),
@@ -431,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                "PREFERENCIAS",
+                                "PREFERENCES",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -442,18 +482,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               const SizedBox(height: 20),
                               _buildLabelValueRow(
-                                "Idioma",
+                                "Language",
                                 _selectedLang == 'es_ES'
-                                    ? 'Español (España)'
+                                    ? 'Spanish (Spain)'
                                     : (_selectedLang == 'es_MX'
-                                          ? 'Español (México)'
-                                          : 'Inglés (EE. UU.)'),
+                                          ? 'Spanish (Mexico)'
+                                          : 'English (US)'),
                                 onEdit: () => _showPicker(
-                                  "Idioma",
+                                  "Language",
                                   {
-                                    'en_US': 'Inglés (EE. UU.)',
-                                    'es_ES': 'Español (España)',
-                                    'es_MX': 'Español (México)',
+                                    'en_US': 'English (US)',
+                                    'es_ES': 'Spanish (Spain)',
+                                    'es_MX': 'Spanish (Mexico)',
                                   },
                                   _selectedLang,
                                   (v) => setState(() => _selectedLang = v),
@@ -464,13 +504,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 color: Color(0xFFF1F5F9),
                               ),
                               _buildLabelValueRow(
-                                "Notificaciones",
+                                "Notifications",
                                 _selectedNotification == 'email'
-                                    ? 'Por Correo'
-                                    : 'En Odoo',
+                                    ? 'By Email'
+                                    : 'In Odoo',
                                 onEdit: () => _showPicker(
-                                  "Notificaciones",
-                                  {'email': 'Por Correo', 'manual': 'En Odoo'},
+                                  "Notifications",
+                                  {'email': 'By Email', 'manual': 'In Odoo'},
                                   _selectedNotification,
                                   (v) =>
                                       setState(() => _selectedNotification = v),
@@ -482,7 +522,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               _buildEditableDetailRow(
                                 Icons.password,
-                                "PIN de Asistencia",
+                                "Attendance PIN",
                                 "",
                                 controller: _pinController,
                                 isPassword: true,
@@ -493,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               _buildEditableDetailRow(
                                 Icons.edit_note,
-                                "Firma de Correo",
+                                "Email Signature",
                                 "",
                                 controller: _signatureController,
                               ),
@@ -522,7 +562,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                "INFORMACIÓN LEGAL",
+                                "LEGAL INFORMATION",
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -535,7 +575,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _buildLegalRow(
                                 context,
                                 Icons.description_outlined,
-                                "Términos y Condiciones",
+                                "Terms and Conditions",
                                 "https://mardebran.com/terms",
                               ),
                               const Divider(
@@ -545,7 +585,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _buildLegalRow(
                                 context,
                                 Icons.privacy_tip_outlined,
-                                "Política de Privacidad",
+                                "Privacy Policy",
                                 "https://mardebran.com/privacy",
                               ),
                             ],
@@ -560,7 +600,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: ElevatedButton.icon(
                             onPressed: () => _handleLogout(context),
                             icon: const Icon(Icons.logout),
-                            label: const Text("Cerrar Sesión"),
+                            label: const Text("Logout"),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFEF4444), // Red
                               foregroundColor: Colors.white,
@@ -587,13 +627,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Cerrar Sesión"),
-        content: const Text("¿Estás seguro de que deseas cerrar sesión?"),
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancelar"),
+            child: const Text("Cancel"),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -601,7 +641,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
             ),
-            child: const Text("Cerrar Sesión"),
+            child: const Text("Logout"),
           ),
         ],
       ),
@@ -625,7 +665,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Error al cerrar sesión"),
+              content: Text("Error logging out"),
               backgroundColor: Colors.red,
             ),
           );
@@ -634,10 +674,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildAvatarImage(dynamic base64String) {
-    if (base64String is String && base64String.isNotEmpty) {
+  Widget _buildAvatarImage(Map<String, dynamic> userData) {
+    final imageData = OdooService.getBestImage(userData);
+    if (imageData != null && imageData.isNotEmpty) {
       try {
-        final bytes = base64Decode(base64String);
+        final bytes = base64Decode(imageData);
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
@@ -712,7 +753,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     )
                   : Text(
-                      value.isEmpty ? "No establecido" : value,
+                      value.isEmpty ? "Not set" : value,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,

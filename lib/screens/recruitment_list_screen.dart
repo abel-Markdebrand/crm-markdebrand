@@ -234,7 +234,7 @@ class _RecruitmentListScreenState extends State<RecruitmentListScreen> {
               ],
             ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF14B8A6), // Teal 500
+        backgroundColor: const Color(0xFF007AFF), // Markdebrand Blue
         onPressed: () {
           Navigator.push(
             context,
@@ -381,8 +381,8 @@ class _RecruitmentListScreenState extends State<RecruitmentListScreen> {
       Color(0xFFEF4444), // 1: Red
       Color(0xFFF97316), // 2: Orange
       Color(0xFFEAB308), // 3: Yellow
-      Color(0xFF3B82F6), // 4: Light Blue
-      Color(0xFF6366F1), // 5: Dark Blue
+      Color(0xFF007AFF), // 4: Markdebrand Blue
+      Color(0xFF991B1B), // 5: Dark Red
       Color(0xFF10B981), // 6: Green
       Color(0xFF0F766E), // 7: Teal
       Color(0xFF06B6D4), // 8: Cyan

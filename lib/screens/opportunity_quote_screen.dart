@@ -50,7 +50,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
   Future<void> _startHotSale() async {
     if (widget.lead.partnerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Este lead no tiene cliente asignado.')),
+        const SnackBar(content: Text('This lead has no client assigned.')),
       );
       return;
     }
@@ -58,7 +58,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
     // Validar productos
     if (_selectedProducts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seleccione al menos un producto.')),
+        const SnackBar(content: Text('Select at least one product.')),
       );
       return;
     }
@@ -93,7 +93,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error al crear venta: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error creating sale: $e')));
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -109,7 +109,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear Cotización')),
+      appBar: AppBar(title: const Text('Create Quotation')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -120,19 +120,19 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
                 widget.lead.name,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: Text(widget.lead.partnerName ?? 'Desconocido'),
+              subtitle: Text(widget.lead.partnerName ?? 'Unknown'),
               leading: const CircleAvatar(child: Icon(Icons.receipt_long)),
             ),
             const Divider(),
 
             // Product Section Header
             Text(
-              "Productos a Facturar",
+              "Products to Bill",
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 10),
             SearchableDropdown<Map<String, dynamic>>(
-              label: "Agregar Producto",
+              label: "Add Product",
               value: _selectedProduct,
               asyncItems: (query) async {
                 try {
@@ -144,7 +144,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
               },
               itemLabel: (item) => "${item['name']} (\$${item['list_price']})",
               onChanged: _onProductSelected,
-              hint: "Buscar y agregar producto...",
+              hint: "Search and add product...",
               icon: Icons.add_shopping_cart,
             ),
             const SizedBox(height: 10),
@@ -154,7 +154,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
               child: _selectedProducts.isEmpty
                   ? Center(
                       child: Text(
-                        "Agregue productos para cotizar",
+                        "Add products to quote",
                         style: TextStyle(color: Colors.grey[400]),
                       ),
                     )
@@ -170,7 +170,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
                             dense: true,
                             title: Text(item['name'], maxLines: 1),
                             subtitle: Text(
-                              "Cant: ${item['qty']} - \$${item['list_price']}",
+                              "Qty: ${item['qty']} - \$${item['list_price']}",
                             ),
                             trailing: IconButton(
                               icon: const Icon(
@@ -211,7 +211,7 @@ class _OpportunityQuoteScreenState extends State<OpportunityQuoteScreen> {
                       )
                     : const Icon(Icons.check),
                 label: Text(
-                  _isProcessing ? "Procesando..." : "CONFIRMAR COTIZACIÓN",
+                  _isProcessing ? "Processing..." : "CONFIRM QUOTATION",
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -236,7 +236,7 @@ class _QtyDialogState extends State<_QtyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text("Cantidad"),
+      title: const Text("Quantity"),
       content: TextField(
         controller: _controller,
         keyboardType: TextInputType.number,
@@ -246,7 +246,7 @@ class _QtyDialogState extends State<_QtyDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancelar"),
+          child: const Text("Cancel"),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _controller.text),

@@ -50,7 +50,7 @@ class _JobPositionListScreenState extends State<JobPositionListScreen> {
       backgroundColor: const Color(0xFFF1F5F9), // Slate 100
       appBar: AppBar(
         title: const Text(
-          "Puestos de Trabajo",
+          "Job Positions",
           style: TextStyle(
             color: Color(0xFF0F172A), // Slate 900
             fontWeight: FontWeight.bold,
@@ -67,7 +67,7 @@ class _JobPositionListScreenState extends State<JobPositionListScreen> {
             child: ElevatedButton.icon(
               onPressed: _createNewJobPosition,
               icon: const Icon(Icons.add, size: 20),
-              label: const Text("Nuevo"),
+              label: const Text("New"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF14B8A6),
                 foregroundColor: Colors.white,
@@ -94,7 +94,7 @@ class _JobPositionListScreenState extends State<JobPositionListScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    "No se encontraron puestos de trabajo",
+                    "No job positions found",
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 16,
@@ -104,7 +104,7 @@ class _JobPositionListScreenState extends State<JobPositionListScreen> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _fetchJobPositions,
-                    child: const Text("Reintentar"),
+                    child: const Text("Retry"),
                   ),
                 ],
               ),
@@ -235,12 +235,12 @@ class _JobPositionListScreenState extends State<JobPositionListScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildMetric(
-                    label: "Para reclutar",
+                    label: "To recruit",
                     value: "${job.noOfRecruitment ?? 0}",
                     color: const Color(0xFF64748B),
                   ),
                   _buildMetric(
-                    label: "Nuevas aplic.",
+                    label: "New apps",
                     value: "${job.newApplicationCount ?? 0}",
                     color: const Color(0xFF3B82F6), // Blue to highlight new
                   ),
@@ -272,7 +272,7 @@ class _JobPositionListScreenState extends State<JobPositionListScreen> {
                       child: Row(
                         children: [
                           Text(
-                            "${job.applicationCount ?? 0} en curso",
+                            "${job.applicationCount ?? 0} ongoing",
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,

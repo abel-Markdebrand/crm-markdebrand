@@ -17,8 +17,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   List<Map<String, dynamic>> _projects = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _selectedFilter = 'Todos';
-  List<String> _availableTags = ['Todos'];
+  String _selectedFilter = 'All';
+  List<String> _availableTags = ['All'];
 
   @override
   void initState() {
@@ -31,7 +31,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
     final projects = await _projectService.getProjects();
     if (mounted) {
       // Extraer etiquetas únicas
-      final Set<String> tags = {'Todos'};
+      final Set<String> tags = {'All'};
       for (var project in projects) {
         if (project['tag_ids'] is List) {
           for (var tag in project['tag_ids']) {
@@ -49,7 +49,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
         _availableTags = tags.toList()..sort();
         // Asegurarse de que el filtro seleccionado sigue siendo válido
         if (!_availableTags.contains(_selectedFilter)) {
-          _selectedFilter = 'Todos';
+          _selectedFilter = 'All';
         }
         _isLoading = false;
       });
@@ -94,14 +94,14 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: Image.asset(
-                  'assets/image/logo_mdb.png',
+                  'assets/image/logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              "Proyectos",
+              "Projects",
               style: GoogleFonts.inter(
                 color: const Color(0xFF0F172A),
                 fontWeight: FontWeight.bold,
@@ -123,12 +123,12 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openProjectForm(),
-        backgroundColor: const Color(0xFF2563EB),
+        backgroundColor: const Color(0xFF007AFF), // Markdebrand Blue
         child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+              child: CircularProgressIndicator(color: Color(0xFF007AFF)),
             )
           : _projects.isEmpty
           ? _buildEmptyState()
@@ -144,7 +144,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
-            "No se encontraron proyectos",
+            "No projects found",
             style: GoogleFonts.inter(
               color: const Color(0xFF64748B),
               fontSize: 16,
@@ -186,7 +186,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
     }
 
     // Filter by Selected Tag
-    if (_selectedFilter != 'Todos') {
+    if (_selectedFilter != 'All') {
       filteredProjects = filteredProjects.where((project) {
         // En Odoo los tags suelen venir en 'tag_ids'
         // pero dado que no estamos trayendo 'tag_ids' en _loadProjects()
@@ -272,7 +272,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
             });
           },
           decoration: InputDecoration(
-            hintText: "Buscar proyectos o etiquetas...",
+            hintText: "Search projects or tags...",
             hintStyle: GoogleFonts.inter(
               color: const Color(0xFF94A3B8),
               fontSize: 14,
@@ -347,19 +347,19 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   }
 
   Widget _buildProjectCard(Map<String, dynamic> project) {
-    final name = project['name'] ?? 'Proyecto sin nombre';
+    final name = project['name'] ?? 'Unnamed Project';
     final taskCount = project['task_count'] ?? 0;
     final partnerName = project['partner_id'] is List
         ? project['partner_id'][1]
-        : 'Sin cliente';
+        : 'No client';
     final managerName = project['user_id'] is List
         ? project['user_id'][1]
-        : 'Sin responsable';
+        : 'No responsible';
     String dateStart = project['date_start']?.toString() ?? '';
     if (dateStart == 'false') dateStart = '';
     String dateEnd = project['date']?.toString() ?? '';
     if (dateEnd == 'false') dateEnd = '';
-    final labelTasks = project['label_tasks'] ?? 'Tareas';
+    final labelTasks = project['label_tasks'] ?? 'Tasks';
     final colorIndex = project['color'] is int ? project['color'] : 0;
 
     // Extraer la primera etiqueta (tag) para mostrarla visualmente como el "estado"
@@ -380,8 +380,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       const Color(0xFFFB923C), // Orange
       const Color(0xFFFBBF24), // Yellow
       const Color(0xFF34D399), // Green
-      const Color(0xFF60A5FA), // Blue
-      const Color(0xFF818CF8), // Indigo
+      const Color(0xFF007AFF), // Markdebrand Blue
+      const Color(0xFF991B1B), // Indigo -> Dark Red
       const Color(0xFFA78BFA), // Purple
       const Color(0xFFF472B6), // Pink
       const Color(0xFF94A3B8), // Slate
@@ -389,7 +389,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
 
     final accentColor = colorIndex > 0 && colorIndex < odooColors.length
         ? odooColors[colorIndex]
-        : const Color(0xFF2563EB);
+        : const Color(0xFF007AFF);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -535,9 +535,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                             Expanded(
                               child: Text(
                                 [
-                                  if (dateStart.isNotEmpty)
-                                    'Inicio: $dateStart',
-                                  if (dateEnd.isNotEmpty) 'Fin: $dateEnd',
+                                  if (dateStart.isNotEmpty) 'Start: $dateStart',
+                                  if (dateEnd.isNotEmpty) 'End: $dateEnd',
                                 ].join(' - '),
                                 style: GoogleFonts.inter(
                                   fontSize: 12,

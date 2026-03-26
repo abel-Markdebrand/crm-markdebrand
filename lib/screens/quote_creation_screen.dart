@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:mvp_odoo/utils/odoo_utils.dart';
 import '../services/quote_service.dart';
 import '../services/odoo_service.dart';
@@ -28,39 +28,39 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
 
   // Form Controllers & State
   DateTime _expirationDate = DateTime.now().add(const Duration(days: 30));
-  DateTime? _deliveryDate; // Fecha de entrega
+  DateTime? _deliveryDate; // Delivery date
 
   // Header Extra
   final _invoiceAddressController =
-      TextEditingController(); // DirecciÃ³n de factura
+      TextEditingController(); // Invoice address
   final _deliveryAddressController =
-      TextEditingController(); // DirecciÃ³n de entrega
+      TextEditingController(); // Delivery address
   final _recurringPlanController =
-      TextEditingController(); // Plan recurrente (Manual text for now)
+      TextEditingController(); // Recurring plan (Manual text for now)
 
   // Tab: Other Info - Sales
   final _salesTeamController = TextEditingController();
   final _salespersonController = TextEditingController(); // Added
-  // Equipo de ventas
+  // Sales team
   final _onlineSignatureController =
-      TextEditingController(); // Firma online (bool logic or text)
-  final _onlinePaymentController = TextEditingController(); // Pago online
+      TextEditingController(); // Online signature (bool logic or text)
+  final _onlinePaymentController = TextEditingController(); // Online payment
   final _clientRefController =
-      TextEditingController(); // Referencia del cliente
-  final _fiscalPositionController = TextEditingController(); // PosiciÃ³n fiscal
-  final _paymentMethodController = TextEditingController(); // MÃ©todo de pago
-  final _projectController = TextEditingController(); // Proyecto
+      TextEditingController(); // Client reference
+  final _fiscalPositionController = TextEditingController(); // Fiscal position
+  final _paymentMethodController = TextEditingController(); // Payment method
+  final _projectController = TextEditingController(); // Project
 
   // Tab: Other Info - Delivery
-  final _weightController = TextEditingController(); // Peso transporte
+  final _weightController = TextEditingController(); // Shipping weight
 
   // Tab: Other Info - Tracking
   final _sourceDocumentController =
-      TextEditingController(); // Documento de fuente
-  final _opportunityController = TextEditingController(); // Oportunidad
-  final _campaignController = TextEditingController(); // CampaÃ±a
-  final _mediumController = TextEditingController(); // Medio
-  final _sourceController = TextEditingController(); // Fuente
+      TextEditingController(); // Source document
+  final _opportunityController = TextEditingController(); // Opportunity
+  final _campaignController = TextEditingController(); // Campaign
+  final _mediumController = TextEditingController(); // Medium
+  final _sourceController = TextEditingController(); // Source
   final _nicheController = TextEditingController(); // Niche (Sync from CRM)
 
   // Lists for Dropdowns
@@ -70,7 +70,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
   List<dynamic> _customers = []; // For generic creation
 
   // Tab: Notes
-  final _termsController = TextEditingController(); // TÃ©rminos y condiciones
+  final _termsController = TextEditingController(); // Terms and conditions
 
   // Selections (ID)
   int? _selectedPricelistId;
@@ -404,9 +404,10 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
       return true;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+        final friendlyMsg = OdooUtils.getFriendlyError(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyMsg), backgroundColor: Colors.red),
+        );
       }
       return false;
     } finally {
@@ -450,7 +451,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text("Cotización enviada por WhatsApp!"),
+                    content: Text("Quotation sent via WhatsApp!"),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -469,9 +470,10 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     } catch (e) {
       debugPrint("Send error: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error Sending: $e")));
+        final friendlyMsg = OdooUtils.getFriendlyError(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyMsg), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -594,9 +596,10 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     } catch (e) {
       debugPrint("Conversion error: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error Converting: $e")));
+        final friendlyMsg = OdooUtils.getFriendlyError(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyMsg), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -608,10 +611,11 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: Colors.white,
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
+          foregroundColor: const Color(0xFF007AFF), // Markdebrand Blue
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
             onPressed: () => Navigator.pop(context),
@@ -625,19 +629,19 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF9B3232)),
+              icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF007AFF)),
               onPressed: _isSaving ? null : _handlePreviewPdf,
               tooltip: "Preview PDF",
             ),
           ],
           bottom: const TabBar(
-            labelColor: Color(0xFF9B3232), // Maroon from PDF
+            labelColor: Color(0xFF007AFF),
             unselectedLabelColor: Color(0xFF64748B),
-            indicatorColor: Color(0xFF9B3232),
+            indicatorColor: Color(0xFF007AFF),
             tabs: [
-              Tab(text: "Líneas"),
+              Tab(text: "Lines"),
               Tab(text: "Info"),
-              Tab(text: "Notas"),
+              Tab(text: "Notes"),
             ],
           ),
         ),
@@ -670,7 +674,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader("NOTAS / TÉRMINOS Y CONDICIONES"),
+          _buildSectionHeader("NOTES / TERMS AND CONDITIONS"),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
@@ -684,7 +688,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
               style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
               decoration: const InputDecoration(
                 hintText:
-                    "Escribe aquí los términos, condiciones o notas adicionales de la cotización...",
+                    "Write the terms, conditions or additional notes here...",
                 hintStyle: TextStyle(color: Color(0xFF94A3B8)),
                 contentPadding: EdgeInsets.all(16),
                 border: InputBorder.none,
@@ -693,7 +697,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            "Nota: Este texto aparecerá al final del documento PDF generado.",
+            "Note: This text will appear at the end of the generated PDF document.",
             style: TextStyle(
               fontSize: 12,
               color: Color(0xFF64748B),
@@ -746,7 +750,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFF9B3232)),
+                      side: const BorderSide(color: Color(0xFF007AFF)),
                     ),
                   ),
                 ),
@@ -1295,7 +1299,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                 "\$${line['price_unit']}",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF9B3232),
+                  color: Color(0xFF007AFF),
                 ),
               ),
             ],
@@ -1356,7 +1360,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF9B3232), // Maroon Total Background
+        color: const Color(0xFF007AFF), // Markdebrand Blue Total Background
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -1447,11 +1451,11 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                     onPressed: _isSaving ? null : _handleSaveDraft,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      side: const BorderSide(color: Color(0xFF007AFF)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      foregroundColor: const Color(0xFF334155),
+                      foregroundColor: const Color(0xFF007AFF),
                     ),
                     child: const Text(
                       "Save Draft",
@@ -1465,7 +1469,7 @@ class _QuoteCreationScreenState extends State<QuoteCreationScreen> {
                     onPressed: _isSaving ? null : _handleSendToCustomer,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: const Color(0xFF9B3232),
+                      backgroundColor: const Color(0xFF007AFF),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

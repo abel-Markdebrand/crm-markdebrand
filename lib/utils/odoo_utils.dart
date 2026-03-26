@@ -44,4 +44,46 @@ class OdooUtils {
     }
     return (value as num).toDouble();
   }
+  /// Returns a user-friendly Spanish error message from a technical Odoo error.
+  static String getFriendlyError(dynamic e) {
+    final String error = e.toString().toLowerCase();
+
+    if (error.contains("attendance_pin")) {
+      return "Attendance PIN is not supported by your Odoo version.";
+    }
+    if (error.contains("access denied") || error.contains("no tienes permiso")) {
+      return "You do not have permission to perform this action.";
+    }
+    if (error.contains("signature")) {
+      return "There was an error with the signature format.";
+    }
+    if (error.contains("connection") || error.contains("socketexception")) {
+      return "Could not connect to the server. Please check your internet connection.";
+    }
+    if (error.contains("timeout")) {
+      return "The server took too long to respond.";
+    }
+    if (error.contains("validation error") || error.contains("valor no válido")) {
+      return "The entered data is not valid for Odoo.";
+    }
+    if (error.contains("serialization") || error.contains("utf-8")) {
+      return "There is a problem with the data format (special characters).";
+    }
+
+    // Fallback cleaner for OdooServiceException
+    if (e.toString().contains("OdooServiceException:")) {
+      return e.toString().split("OdooServiceException:").last.trim();
+    }
+
+    return "An unexpected error occurred. Please try again.";
+  }
+
+  /// Returns empty string if Odoo sends false/null for a many2one field,
+  /// otherwise returns the name (the second element of the [id, name] list).
+  static String safeM2OName(dynamic value) {
+    if (value is List && value.length >= 2) {
+      return safeString(value[1]);
+    }
+    return '';
+  }
 }

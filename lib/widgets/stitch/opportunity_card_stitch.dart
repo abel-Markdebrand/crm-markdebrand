@@ -86,7 +86,7 @@ class OpportunityCardStitch extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.1),
+                              color: const Color(0xFF007AFF).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -94,7 +94,7 @@ class OpportunityCardStitch extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue,
+                                color: Color(0xFF007AFF),
                               ),
                             ),
                           ),
@@ -179,9 +179,7 @@ class OpportunityCardStitch extends StatelessWidget {
                         _buildActionButton(
                           icon: Icons.arrow_forward_rounded,
                           onPressed: onTap,
-                          color: const Color(
-                            0xFF0D59F2,
-                          ), // Mantenemos azul para acción principal
+                          color: const Color(0xFF007AFF), // Mantenemos azul para acción principal
                           iconColor: Colors.white,
                         ),
                       ],

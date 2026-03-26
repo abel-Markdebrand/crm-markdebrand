@@ -23,6 +23,7 @@ import 'package:mvp_odoo/screens/attendance_screen.dart';
 import 'package:mvp_odoo/screens/no_access_screen.dart';
 import 'package:mvp_odoo/sales_screen.dart';
 import 'package:mvp_odoo/screens/products_screen.dart';
+import 'package:mvp_odoo/utils/odoo_utils.dart';
 
 enum AppNavigationContext { sales, rrhh, communication, operations }
 
@@ -53,7 +54,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
 
   // Animated Text State
   final ValueNotifier<String> _titleNotifier = ValueNotifier<String>("");
-  final String _fullTitle = "Mardebran";
+  final String _fullTitle = "Markdebrand";
 
   @override
   void initState() {
@@ -100,17 +101,17 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
         _tabs.add(
           StitchTab(
             icon: Icons.groups,
-            label: "CONTACTOS",
+            label: "CONTACTS",
             screen: p.hasContactsAccess
                 ? const ContactsScreen()
-                : const NoAccessScreen(moduleName: "Contactos"),
+                : const NoAccessScreen(moduleName: "Contacts"),
             id: 'contacts',
           ),
         );
         _tabs.add(
           StitchTab(
             icon: Icons.shopping_cart,
-            label: "VENTAS",
+            label: "SALES",
             screen: const SalesScreen(),
             id: 'sales',
           ),
@@ -118,7 +119,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
         _tabs.add(
           StitchTab(
             icon: Icons.inventory_2,
-            label: "PRODUCTOS",
+            label: "PRODUCTS",
             screen: const ProductsScreen(),
             id: 'products',
           ),
@@ -129,20 +130,20 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
         _tabs.add(
           StitchTab(
             icon: Icons.person_add_alt_1,
-            label: "RECLUTA.",
+            label: "RECRUIT.",
             screen: p.hasRecruitmentAccess
                 ? const JobPositionListScreen()
-                : const NoAccessScreen(moduleName: "Reclutamiento"),
+                : const NoAccessScreen(moduleName: "Recruitment"),
             id: 'recruitment',
           ),
         );
         _tabs.add(
           StitchTab(
             icon: Icons.fingerprint,
-            label: "ASISTENCIA",
+            label: "ATTENDANCE",
             screen: p.hasAttendanceAccess
                 ? const AttendanceScreen()
-                : const NoAccessScreen(moduleName: "Asistencia"),
+                : const NoAccessScreen(moduleName: "Attendance"),
             id: 'attendance',
           ),
         );
@@ -175,7 +176,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
         _tabs.add(
           StitchTab(
             icon: Icons.assignment_rounded,
-            label: "PROYECTOS",
+            label: "PROJECTS",
             screen: const ProjectListScreen(),
             id: 'projects',
           ),
@@ -244,7 +245,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
       debugPrint('ERROR IN _loadStages: $e\n$stacktrace');
       if (mounted) {
         setState(() {
-          _errorMsg = e.toString();
+          _errorMsg = OdooUtils.getFriendlyError(e);
           _isLoading = false;
         });
       }
@@ -293,7 +294,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
       default:
         // Generic add or snackbar
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Acción no definida para $currentTabId")),
+          SnackBar(content: Text("Action not defined for $currentTabId")),
         );
     }
   }
@@ -369,8 +370,8 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                 ),
                 Text(
                   _tabs.isNotEmpty && _currentTabIndex < _tabs.length
-                      ? "Ecosistema Mardebran".toUpperCase()
-                      : "Sistema de Gestión".toUpperCase(),
+                      ? "Markdebrand Ecosystem".toUpperCase()
+                      : "Management System".toUpperCase(),
                   style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
@@ -476,14 +477,14 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
               bottom: 20,
             ),
             decoration: BoxDecoration(
-              image: DecorationImage(
-                image: const AssetImage('assets/image/logo_mdb.png'),
-                fit: BoxFit.cover,
-                colorFilter: ColorFilter.mode(
-                  Colors.black.withValues(alpha: 0.65),
-                  BlendMode.darken,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-              ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +496,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                         height: 64,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
                           image: DecorationImage(
                             image: _getAvatarImage()!,
                             fit: BoxFit.cover,
@@ -507,12 +508,12 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                         height: 64,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withAlpha(200),
-                          border: Border.all(color: Colors.white, width: 2),
+                          color: const Color(0xFFF1F5F9),
+                          border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
                         ),
                         child: const Icon(
                           Icons.person,
-                          color: Colors.black,
+                          color: Color(0xFF64748B),
                           size: 32,
                         ),
                       ),
@@ -521,47 +522,46 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                 Text(
                   _userProfile?['name'] is String
                       ? _userProfile!['name']
-                      : "Usuario",
+                      : "User",
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF0F172A), // Dark Slate
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'CenturyGothic',
                   ),
                 ),
                 // User Email
                 Text(
-                  _userProfile?['email'] is String
+                  _userProfile?['email'] is String &&
+                          (_userProfile!['email'] as String).isNotEmpty &&
+                          _userProfile!['email'] != 'false'
                       ? _userProfile!['email']
-                      : "correo@ejemplo.com",
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontFamily: 'Nexa',
-                  ),
+                      : _userProfile?['login'] is String &&
+                             (_userProfile!['login'] as String).isNotEmpty
+                      ? _userProfile!['login']
+                      : "usuario@markdebrand.com",
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 13), // Slate 500
                 ),
                 // User Job Position
                 if (_userProfile?['function'] is String &&
                     (_userProfile!['function'] as String).isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
+                    padding: const EdgeInsets.only(top: 8.0),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 2,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(50),
-                        borderRadius: BorderRadius.circular(4),
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         _userProfile!['function'].toString().toUpperCase(),
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFF475569), // Slate 600
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
-                          fontFamily: 'Nexa',
                         ),
                       ),
                     ),
@@ -574,7 +574,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               decoration: InputDecoration(
-                hintText: "Buscar módulo...",
+                hintText: "Search module...",
                 prefixIcon: const Icon(Icons.search, size: 20),
                 filled: true,
                 fillColor: const Color(0xFFF1F5F9),
@@ -597,7 +597,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
               padding: EdgeInsets.zero,
               children: [
                 _buildDrawerCategory(
-                  title: "VENTAS",
+                  title: "SALES",
                   icon: Icons.monetization_on_rounded,
                   items: [
                     _DrawerItemData(
@@ -610,23 +610,23 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                     ),
                     _DrawerItemData(
                       icon: Icons.contacts_rounded,
-                      title: 'Contactos',
-                      color: const Color(0xFFF59E0B),
+                      title: 'Contacts',
+                      color: const Color(0xFF007AFF), // Markdebrand Blue
                       onTap: () =>
                           _switchContext(AppNavigationContext.sales, 1),
                       hasAccess: PermissionService.instance.hasContactsAccess,
                     ),
                     _DrawerItemData(
-                      icon: Icons.shopping_cart_rounded,
-                      title: 'Ventas',
-                      color: const Color(0xFFEF4444),
+                      icon: Icons.bar_chart_rounded,
+                      title: 'Sales',
+                      color: const Color(0xFF007AFF),
                       onTap: () =>
                           _switchContext(AppNavigationContext.sales, 2),
                       hasAccess: true,
                     ),
                     _DrawerItemData(
                       icon: Icons.inventory_2_rounded,
-                      title: 'Productos',
+                      title: 'Products',
                       color: const Color(0xFF64748B),
                       onTap: () =>
                           _switchContext(AppNavigationContext.sales, 3),
@@ -635,13 +635,13 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                   ],
                 ),
                 _buildDrawerCategory(
-                  title: "RECURSOS HUMANOS",
+                  title: "HUMAN RESOURCES",
                   icon: Icons.badge_rounded,
                   items: [
                     _DrawerItemData(
                       icon: Icons.person_add_alt_1_rounded,
-                      title: 'Reclutamiento',
-                      color: const Color(0xFF14B8A6),
+                      title: 'Recruitment',
+                      color: const Color(0xFF007AFF), // Markdebrand Blue
                       onTap: () => _switchContext(AppNavigationContext.rrhh, 0),
                       hasAccess:
                           PermissionService.instance.hasRecruitmentAccess,
@@ -649,20 +649,20 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                     _DrawerItemData(
                       icon: Icons.fingerprint,
                       title: 'Check-In / Out',
-                      color: Colors.teal,
+                      color: const Color(0xFF007AFF),
                       onTap: () => _switchContext(AppNavigationContext.rrhh, 1),
                       hasAccess: PermissionService.instance.hasAttendanceAccess,
                     ),
                   ],
                 ),
                 _buildDrawerCategory(
-                  title: "OPERACIONES",
+                  title: "OPERATIONS",
                   icon: Icons.build_circle_rounded,
                   items: [
                     _DrawerItemData(
                       icon: Icons.assignment_rounded,
-                      title: 'Proyectos',
-                      color: const Color(0xFF8B5CF6),
+                      title: 'Projects',
+                      color: const Color(0xFF007AFF),
                       onTap: () =>
                           _switchContext(AppNavigationContext.operations, 0),
                       hasAccess: true,
@@ -670,7 +670,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                   ],
                 ),
                 _buildDrawerCategory(
-                  title: "COMUNICACIÓN",
+                  title: "COMMUNICATION",
                   icon: Icons.chat_bubble_rounded,
                   items: [
                     _DrawerItemData(
@@ -884,7 +884,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                 ),
                 child: TextField(
                   decoration: const InputDecoration(
-                    hintText: "Buscar por nombre, cliente o ciudad...",
+                    hintText: "Search by name, customer or city...",
                     hintStyle: TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: 13,
@@ -928,14 +928,14 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        "Error conectando al CRM:\n$_errorMsg",
+                        "Error connecting to CRM:\n$_errorMsg",
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.red),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadStages,
-                        child: const Text("Reintentar"),
+                        child: const Text("Retry"),
                       ),
                     ],
                   ),
@@ -946,7 +946,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
             const SliverFillRemaining(
               child: Center(
                 child: Text(
-                  "No se encontraron etapas. (El CRM está vacío o sin configurar)",
+                  "No stages found. (The CRM is empty or not configured)",
                   style: TextStyle(color: Colors.grey),
                 ),
               ),
@@ -1045,7 +1045,7 @@ class _CrmDashboardScreenState extends State<CrmDashboardScreen> {
                   // Lista de Leads de la Etapa Seleccionada
                   Expanded(
                     child: _selectedStageId == -1
-                        ? const Center(child: Text("Selecciona una etapa"))
+                        ? const Center(child: Text("Select a stage"))
                         : SimpleOpportunityList(
                             key: ValueKey(
                               '${_selectedStageId}_$_searchQuery',
@@ -1128,7 +1128,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
             children: [
               ListTile(
                 title: Text(
-                  "Mover '${lead.name}' a:",
+                  "Move '${lead.name}' to:",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -1143,7 +1143,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
                     Navigator.pop(context); // Cierra modal
                     // Muestra carga visual simple
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Moviendo lead...")),
+                      const SnackBar(content: Text("Moving lead...")),
                     );
                     try {
                       await _crmService.updateLeadStage(lead.id, stage.id);
@@ -1151,7 +1151,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Error al mover: $e")),
+                          SnackBar(content: Text("Error moving: $e")),
                         );
                       }
                     }
@@ -1174,7 +1174,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
     if (_error != null) {
       return Center(
         child: Text(
-          "Error cargando leads: \n$_error",
+          "Error loading leads: \n$_error",
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.red),
         ),
@@ -1184,7 +1184,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
     if (_leads.isEmpty) {
       return const Center(
         child: Text(
-          "No hay oportunidades en esta etapa.",
+          "No opportunities in this stage.",
           style: TextStyle(color: Colors.grey),
         ),
       );
@@ -1199,7 +1199,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
           children: [
             OpportunityCardStitch(
               name: lead.name,
-              partnerName: lead.partnerName ?? 'Sin Cliente',
+              partnerName: lead.partnerName ?? 'No Customer',
               expectedRevenue: lead.expectedRevenue,
               priority: lead.priority ?? '0',
               tags: lead.tags,
@@ -1221,7 +1221,7 @@ class _SimpleOpportunityListState extends State<SimpleOpportunityList> {
                   MaterialPageRoute(
                     builder: (context) => WhatsAppChatScreen(
                       partnerId: lead.partnerId,
-                      partnerName: lead.partnerName ?? 'Desconocido',
+                      partnerName: lead.partnerName ?? 'Unknown',
                       partnerPhone: lead.phone,
                     ),
                   ),

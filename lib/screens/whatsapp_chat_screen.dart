@@ -216,14 +216,14 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
           _markAsFailed(
             tempId,
             text,
-            error: "Error del servidor al enviar texto",
+            error: "Server error sending text",
           );
         }
       }
     } catch (e) {
       debugPrint("[SEND] Text failure: $e");
       if (mounted) {
-        String errorMsg = "Error de conexión o servidor";
+        String errorMsg = "Connection or server error";
         if (e is OdooServiceException) {
           errorMsg = e.message;
         } else if (e.toString().contains("OdooServiceException")) {
@@ -307,14 +307,14 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
             tempId,
             "Audio failed",
             type: MessageType.audio,
-            error: "Error al subir audio",
+            error: "Error uploading audio",
           );
         }
       }
     } catch (e) {
       debugPrint("[SEND] Audio failure: $e");
       if (mounted) {
-        String errorMsg = "Error de conexión al enviar audio";
+        String errorMsg = "Connection error sending audio";
         if (e is OdooServiceException) {
           errorMsg = e.message;
         } else if (e.toString().contains("OdooServiceException")) {
@@ -542,14 +542,14 @@ class _WhatsAppChatScreenState extends State<WhatsAppChatScreen> {
             tempId,
             "File failed",
             type: type,
-            error: "Error al subir archivo",
+            error: "Error uploading file",
           );
         }
       }
     } catch (e) {
       debugPrint("[SEND] File failure: $e");
       if (mounted) {
-        String errorMsg = "Error de conexión al enviar archivo";
+        String errorMsg = "Connection error sending file";
         if (e is OdooServiceException) {
           errorMsg = e.message;
         } else if (e.toString().contains("OdooServiceException")) {

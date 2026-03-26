@@ -1,5 +1,5 @@
 name: mvp_odoo
-description: "A new Flutter project."
+description: "Markdebrand Corporate Application"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -131,5 +131,5 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/image/logo.png"
+  image_path: "assets/image/logo_mdb.png"
   min_sdk_android: 21

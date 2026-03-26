@@ -62,7 +62,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     // Stitch Design Colors (Same as Login)
-    const primaryColor = Color(0xFF0D59F2);
+    const primaryColor = Color(0xFF007AFF);
     const textMain = Color(0xFF1E293B);
     final textMuted = Colors.grey[500];
 
@@ -96,14 +96,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: Image.asset(
-                            'assets/image/logo_mdb.png',
+                            'assets/image/logo.png',
                             fit: BoxFit.contain,
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        "Mardebran",
+                        "Markdebrand",
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -243,7 +243,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Text(
-                "© 2024 Mardebran Ecosystem",
+                "© 2025 Markdebrand Ecosystem",
                 style: TextStyle(fontSize: 12, color: Colors.grey[400]),
               ),
             ),

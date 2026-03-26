@@ -7,7 +7,6 @@ class DiscussionService {
   DiscussionService._internal();
 
   /// Fetch channels for the current user
-  /// Usually 'mail.channel' with 'public'='public' or member in channel_partner_ids
   Future<List<Map<String, dynamic>>> getChannels() async {
     try {
       final uid = OdooService.instance.uid;
@@ -15,251 +14,94 @@ class DiscussionService {
 
       final partnerId = await _getPartnerId(uid);
       debugPrint("DiscussionService: Partner ID for user $uid is $partnerId");
-      if (partnerId == null) return [];
-
-      // Relaxed domain: Just check partner membership.
-      final domain = [
-        [
-          'channel_partner_ids',
-          'in',
-          [partnerId],
-        ],
-      ];
-
-      debugPrint("DiscussionService: Fetching channels with domain $domain");
 
       dynamic response;
-      String currentModel = 'mail.channel';
+      String currentModel = 'discuss.channel';
 
+      // --- ODOO 17 STRATEGY ---
       try {
-        response = await OdooService.instance.callKw(
-          model: 'discuss.channel', // Odoo 17+
-          method: 'search_read',
-          args: [domain],
-          kwargs: {
-            'fields': [
-              'id',
-              'name',
-              'display_name',
-              'channel_type',
-              'description',
-              'channel_partner_ids',
-              'channel_member_ids',
-            ],
-            'limit': 50,
-          },
-        );
-        currentModel = 'discuss.channel';
-      } catch (e) {
-        debugPrint(
-          "DiscussionService: discuss.channel failed, falling back to mail.channel. Error: $e",
-        );
+        // Attempt 1: Fetch via channel_fetch_preview (Odoo 17 standard)
         try {
-          response = await OdooService.instance.callKw(
-            model: 'mail.channel', // Odoo 16 and below
-            method: 'search_read',
-            args: [domain],
-            kwargs: {
-              'fields': [
-                'id',
-                'name',
-                'display_name',
-                'channel_type',
-                'description',
-                'channel_partner_ids',
-              ],
-              'limit': 50,
-            },
+          final preview = await OdooService.instance.callKw(
+            model: 'discuss.channel',
+            method: 'channel_fetch_preview',
+            args: [],
+            kwargs: {},
           );
-        } catch (innerE) {
-          debugPrint(
-            "DiscussionService: mail.channel also failed. Error: $innerE",
-          );
-          // Try fetching all public channels if channel_partner_ids is fully failing
-          debugPrint(
-            "DiscussionService: trying without channel_partner_ids filter",
-          );
+          if (preview is List && preview.isNotEmpty) {
+            response = preview;
+          }
+        } catch (_) {}
+
+        // Attempt 2: Search by membership (Odoo 17 field)
+        if (response == null || (response is List && response.isEmpty)) {
+          try {
+            response = await OdooService.instance.callKw(
+              model: 'discuss.channel',
+              method: 'search_read',
+              args: [[['is_member', '=', true]]],
+              kwargs: {
+                'fields': ['id', 'name', 'display_name', 'channel_type', 'image_128', 'channel_partner_ids'],
+                'order': 'id desc',
+                'limit': 50,
+              },
+            );
+          } catch (_) {}
+        }
+        
+        // Attempt 3: Search anything accessible (Hyper-permissive fallback)
+        if (response == null || (response is List && response.isEmpty)) {
+          try {
+            response = await OdooService.instance.callKw(
+              model: 'discuss.channel',
+              method: 'search_read',
+              args: [[]],
+              kwargs: {
+                'fields': ['id', 'name', 'display_name', 'channel_type', 'image_128', 'channel_partner_ids'],
+                'limit': 50,
+                'order': 'write_date desc',
+              },
+            );
+          } catch (_) {}
+        }
+      } catch (e) {
+        debugPrint("DiscussionService: discuss.channel failed: $e");
+      }
+
+      // --- LEGACY FALLBACK (Odoo 16 and below) ---
+      if (response == null || (response is List && response.isEmpty)) {
+        currentModel = 'mail.channel';
+        try {
+          final domain = partnerId != null ? [['channel_partner_ids', 'in', [partnerId]]] : [];
           response = await OdooService.instance.callKw(
             model: 'mail.channel',
             method: 'search_read',
-            args: [[]],
+            args: [domain],
             kwargs: {
-              'fields': [
-                'id',
-                'name',
-                'display_name',
-                'channel_type',
-                'description',
-                'channel_partner_ids',
-              ],
+              'fields': ['id', 'name', 'display_name', 'channel_type', 'image_128', 'channel_partner_ids'],
               'limit': 50,
             },
           );
+        } catch (_) {
+          // Absolute last resort: fetch any accessible mail.channel
+          try {
+            response = await OdooService.instance.callKw(
+              model: 'mail.channel',
+              method: 'search_read',
+              args: [[]],
+              kwargs: {
+                'fields': ['id', 'name', 'channel_type'],
+                'limit': 50,
+              },
+            );
+          } catch (_) {}
         }
       }
 
-      debugPrint("DiscussionService: Response ($currentModel): $response");
+      debugPrint("DiscussionService: Found ${response?.length ?? 0} channels using $currentModel");
 
       if (response != null && response is List) {
-        List<Map<String, dynamic>> channels = List<Map<String, dynamic>>.from(
-          response,
-        );
-
-        // Enhance partner list fetching by using channel_member_ids for Odoo 17+
-        Set<int> memberIdsToFetch = {};
-        for (var channel in channels) {
-          if (channel['channel_member_ids'] is List) {
-            for (var mId in channel['channel_member_ids']) {
-              if (mId is int) memberIdsToFetch.add(mId);
-            }
-          }
-        }
-
-        Map<int, int> memberToPartner = {};
-        Map<int, String> memberPartnerNames = {};
-
-        if (memberIdsToFetch.isNotEmpty) {
-          try {
-            final membersResp = await OdooService.instance.callKw(
-              model: 'discuss.channel.member',
-              method: 'search_read',
-              args: [
-                [
-                  ['id', 'in', memberIdsToFetch.toList()],
-                ],
-              ],
-              kwargs: {
-                'fields': ['id', 'partner_id'],
-              },
-            );
-
-            if (membersResp is List) {
-              for (var m in membersResp) {
-                if (m['partner_id'] is List && m['partner_id'].isNotEmpty) {
-                  final pId = m['partner_id'][0] as int;
-                  final pName = m['partner_id'][1].toString();
-                  memberToPartner[m['id'] as int] = pId;
-                  memberPartnerNames[pId] = pName;
-                }
-              }
-            }
-          } catch (e) {
-            debugPrint(
-              "DiscussionService: Failed to fetch discuss.channel.member (may not exist in legacy Odoo): $e",
-            );
-          }
-        }
-
-        // Map to hold partnerId -> name to fetch in batch
-        Set<int> partnersToFetch = {};
-
-        // Some Odoo versions return channel_partner_ids as [id1, id2]
-        // Others might return [[id1, name1], [id2, name2]]
-        Map<int, String> alreadyKnownNames = Map.from(memberPartnerNames);
-
-        for (var channel in channels) {
-          // Priority 1: Use display_name if available and valid
-          String dispName = channel['display_name']?.toString() ?? '';
-          if (dispName.isNotEmpty && dispName != 'false') {
-            // Odoo display_name is sometimes 'Chat with John' or just 'John'
-            channel['name'] = dispName;
-          }
-
-          if (channel['channel_partner_ids'] == null ||
-              channel['channel_partner_ids'] == false ||
-              (channel['channel_partner_ids'] is List &&
-                  (channel['channel_partner_ids'] as List).isEmpty)) {
-            if (channel['channel_member_ids'] is List &&
-                (channel['channel_member_ids'] as List).isNotEmpty) {
-              List<int> synthesized = [];
-              for (var mId in channel['channel_member_ids']) {
-                if (memberToPartner.containsKey(mId)) {
-                  synthesized.add(memberToPartner[mId]!);
-                }
-              }
-              channel['channel_partner_ids'] = synthesized;
-            }
-          }
-
-          if (channel['channel_type'] == 'chat') {
-            String cName = channel['name']?.toString() ?? '';
-            // If the name is default/empty/ugly, we need to extract from partners
-            if (cName.isEmpty || cName == 'false' || cName.contains(',')) {
-              if (channel['channel_partner_ids'] is List) {
-                final List<dynamic> pIds = channel['channel_partner_ids'];
-                for (var pId in pIds) {
-                  if (pId is int) {
-                    if (pId != partnerId) partnersToFetch.add(pId);
-                  } else if (pId is List && pId.isNotEmpty) {
-                    // e.g. [id, name]
-                    final id = pId[0] as int;
-                    if (pId.length > 1) {
-                      alreadyKnownNames[id] = pId[1].toString();
-                    }
-                    if (id != partnerId && !alreadyKnownNames.containsKey(id)) {
-                      partnersToFetch.add(id);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        Map<int, String> partnerNames = Map.from(alreadyKnownNames);
-
-        if (partnersToFetch.isNotEmpty) {
-          try {
-            final partnerResponse = await OdooService.instance.callKw(
-              model: 'res.partner',
-              method: 'name_get',
-              args: [partnersToFetch.toList()],
-              kwargs: {},
-            );
-
-            if (partnerResponse is List) {
-              for (var p in partnerResponse) {
-                if (p is List && p.length >= 2) {
-                  partnerNames[p[0] as int] = p[1].toString();
-                }
-              }
-            }
-          } catch (e) {
-            debugPrint("DiscussionService: Error resolving partner names: $e");
-          }
-        }
-
-        // Apply names to channels
-        for (var channel in channels) {
-          if (channel['channel_type'] == 'chat') {
-            String cName = channel['name']?.toString() ?? '';
-            if (cName.isEmpty || cName == 'false' || cName.contains(',')) {
-              if (channel['channel_partner_ids'] is List) {
-                final List<dynamic> pIds = channel['channel_partner_ids'];
-                List<String> foundNames = [];
-                for (var pId in pIds) {
-                  int? id;
-                  if (pId is int) {
-                    id = pId;
-                  } else if (pId is List && pId.isNotEmpty) {
-                    id = pId[0] as int;
-                  }
-
-                  if (id != null &&
-                      id != partnerId &&
-                      partnerNames.containsKey(id)) {
-                    foundNames.add(partnerNames[id]!);
-                  }
-                }
-                if (foundNames.isNotEmpty) {
-                  channel['name'] = foundNames.join(', ');
-                }
-              }
-            }
-          }
-        }
-
-        return channels;
+        return List<Map<String, dynamic>>.from(response);
       }
       return [];
     } catch (e) {
@@ -269,39 +111,22 @@ class DiscussionService {
   }
 
   /// Fetch messages for a specific channel
-  Future<List<Map<String, dynamic>>> getMessages(
-    int channelId, {
-    int limit = 50,
-  }) async {
+  Future<List<Map<String, dynamic>>> getMessages(int channelId, {int limit = 50}) async {
     try {
       final domain = [
-        [
-          'model',
-          'in',
-          ['mail.channel', 'discuss.channel'],
-        ],
+        ['model', 'in', ['mail.channel', 'discuss.channel']],
         ['res_id', '=', channelId],
-        // ['message_type', '!=', 'notification'], // DISABLED: Show all messages including system notes
       ];
-
       final response = await OdooService.instance.callKw(
         model: 'mail.message',
         method: 'search_read',
         args: [domain],
         kwargs: {
-          'fields': [
-            'id',
-            'date',
-            'body',
-            'author_id',
-            'message_type',
-            'subtype_id',
-          ],
+          'fields': ['id', 'date', 'body', 'author_id', 'message_type'],
           'limit': limit,
           'order': 'date desc',
         },
       );
-
       if (response != null && response is List) {
         return List<Map<String, dynamic>>.from(response);
       }
@@ -317,28 +142,17 @@ class DiscussionService {
     try {
       try {
         await OdooService.instance.callKw(
-          model: 'discuss.channel', // Odoo 17+
+          model: 'discuss.channel',
           method: 'message_post',
           args: [channelId],
-          kwargs: {
-            'body': body,
-            'message_type': 'comment',
-            'subtype_xmlid': 'mail.mt_comment',
-          },
+          kwargs: {'body': body, 'message_type': 'comment'},
         );
-      } catch (e) {
-        debugPrint(
-          "Sending via discuss.channel failed, trying mail.channel. Error: $e",
-        );
+      } catch (_) {
         await OdooService.instance.callKw(
-          model: 'mail.channel', // Odoo 16 and below
+          model: 'mail.channel',
           method: 'message_post',
           args: [channelId],
-          kwargs: {
-            'body': body,
-            'message_type': 'comment',
-            'subtype_xmlid': 'mail.mt_comment',
-          },
+          kwargs: {'body': body, 'message_type': 'comment'},
         );
       }
       return true;
@@ -348,29 +162,34 @@ class DiscussionService {
     }
   }
 
-  // Helper to get partner ID
+  /// Helper to get partner ID
   Future<int?> _getPartnerId(int uid) async {
     try {
       final response = await OdooService.instance.callKw(
         model: 'res.users',
         method: 'search_read',
-        args: [
-          [
-            ['id', '=', uid],
-          ],
-        ],
-        kwargs: {
-          'fields': ['partner_id'],
-          'limit': 1,
-        },
+        args: [[['id', '=', uid]]],
+        kwargs: {'fields': ['partner_id'], 'limit': 1},
       );
 
       if (response != null && response is List && response.isNotEmpty) {
-        // partner_id is usually [id, name]
         final partnerField = response[0]['partner_id'];
         if (partnerField is List && partnerField.isNotEmpty) {
           return partnerField[0] as int;
+        } else if (partnerField is int) {
+          return partnerField;
         }
+      }
+      
+      // Fallback: search res.partner by user_id
+      final pSearch = await OdooService.instance.callKw(
+        model: 'res.partner',
+        method: 'search_read',
+        args: [[['user_id', '=', uid]]],
+        kwargs: {'fields': ['id'], 'limit': 1},
+      );
+      if (pSearch is List && pSearch.isNotEmpty) {
+        return pSearch[0]['id'] as int;
       }
       return null;
     } catch (e) {
@@ -379,251 +198,75 @@ class DiscussionService {
     }
   }
 
-  /// Get list of users (for creating new DMs)
   Future<List<Map<String, dynamic>>> getUsers() async {
     try {
-      dynamic response;
-      try {
-        response = await OdooService.instance.callKw(
-          model: 'res.users',
-          method: 'search_read',
-          args: [
-            [
-              ['share', '=', false],
-            ], // Typically internal users
-          ],
-          kwargs: {
-            'fields': ['id', 'name', 'partner_id'],
-            'limit': 100,
-          },
-        );
-      } catch (e) {
-        // Fallback if 'share' field causes permission or missing field error
-        response = await OdooService.instance.callKw(
-          model: 'res.users',
-          method: 'search_read',
-          args: [[]],
-          kwargs: {
-            'fields': ['id', 'name', 'partner_id'],
-            'limit': 100,
-          },
-        );
-      }
-
-      if (response != null && response is List) {
-        return List<Map<String, dynamic>>.from(response);
-      }
+      final response = await OdooService.instance.callKw(
+        model: 'res.users',
+        method: 'search_read',
+        args: [[['share', '=', false]]],
+        kwargs: {'fields': ['id', 'name', 'partner_id', 'image_128'], 'limit': 100},
+      );
+      if (response is List) return List<Map<String, dynamic>>.from(response);
       return [];
-    } catch (e) {
-      debugPrint("Error fetching users: $e");
+    } catch (_) {
+      final response = await OdooService.instance.callKw(
+        model: 'res.users',
+        method: 'search_read',
+        args: [[]],
+        kwargs: {'fields': ['id', 'name', 'partner_id', 'image_128'], 'limit': 100},
+      );
+      if (response is List) return List<Map<String, dynamic>>.from(response);
       return [];
     }
   }
 
-  /// Get public channels (to join/message)
   Future<List<Map<String, dynamic>>> getPublicChannels() async {
-    // In Odoo 17, 'public' field might not exist on discuss.channel.
-    // Easiest is to search by channel_type: channel or group.
-    final domain = [
-      [
-        'channel_type',
-        'in',
-        ['channel', 'group'],
-      ],
-    ];
-
-    dynamic response;
-    dynamic lastError;
-
     try {
-      response = await OdooService.instance.callKw(
+      final response = await OdooService.instance.callKw(
         model: 'discuss.channel',
         method: 'search_read',
-        args: [domain],
-        kwargs: {
-          'fields': ['id', 'name', 'channel_type', 'description'],
-          'limit': 100,
-        },
+        args: [[['channel_type', 'in', ['channel', 'group']]]],
+        kwargs: {'fields': ['id', 'name', 'channel_type'], 'limit': 100},
       );
-    } catch (e) {
-      debugPrint(
-        "getPublicChannels discuss.channel failed, trying mail.channel: $e",
-      );
-      lastError = e;
+      if (response is List) return List<Map<String, dynamic>>.from(response);
+      return [];
+    } catch (_) {
       try {
-        response = await OdooService.instance.callKw(
+        final response = await OdooService.instance.callKw(
           model: 'mail.channel',
           method: 'search_read',
-          args: [domain],
-          kwargs: {
-            'fields': ['id', 'name', 'channel_type', 'description'],
-            'limit': 100,
-          },
+          args: [[['channel_type', 'in', ['channel', 'group']]]],
+          kwargs: {'fields': ['id', 'name', 'channel_type'], 'limit': 100},
         );
-      } catch (innerE) {
-        debugPrint(
-          "getPublicChannels mail.channel fallback failed, trying without filter: $innerE",
-        );
-        lastError = innerE;
-        try {
-          response = await OdooService.instance.callKw(
-            model: 'mail.channel',
-            method: 'search_read',
-            args: [[]],
-            kwargs: {
-              'fields': ['id', 'name'],
-              'limit': 100,
-            },
-          );
-        } catch (finalE) {
-          lastError = finalE;
-        }
-      }
+        if (response is List) return List<Map<String, dynamic>>.from(response);
+      } catch (_) {}
+      return [];
     }
-
-    if (response != null && response is List) {
-      return List<Map<String, dynamic>>.from(response);
-    }
-
-    if (lastError != null) {
-      throw Exception("Odoo API Error: $lastError");
-    }
-    return [];
   }
 
-  /// Create or get a Direct Message channel with a specific partner
   Future<int?> createOrGetChat(int partnerId) async {
-    // In Odoo, channel_get takes a list of partner IDs.
-    // E.g., model.channel_get([partnerId])
-    final args = [
-      [partnerId],
-    ];
-
-    dynamic response;
-    dynamic lastError;
-
     try {
-      response = await OdooService.instance.callKw(
+      final response = await OdooService.instance.callKw(
         model: 'discuss.channel',
         method: 'channel_get',
-        args: args,
-        kwargs:
-            {}, // Some Odoo versions crash if kwargs isn't present for channel_get
+        args: [[partnerId]],
+        kwargs: {},
       );
-    } catch (e) {
-      debugPrint("discuss.channel.channel_get failed, trying mail.channel: $e");
-      lastError = e;
+      if (response is Map) return response['id'] as int?;
+      if (response is int) return response;
+      return null;
+    } catch (_) {
       try {
-        response = await OdooService.instance.callKw(
+        final response = await OdooService.instance.callKw(
           model: 'mail.channel',
           method: 'channel_get',
-          args: args,
+          args: [[partnerId]],
           kwargs: {},
         );
-      } catch (innerE) {
-        debugPrint("mail.channel.channel_get failed: $innerE");
-        lastError = innerE;
-        // Fallback: If channel_get completely fails, try to search for an existing chat first
-        try {
-          final domain = [
-            ['channel_type', '=', 'chat'],
-            [
-              'channel_partner_ids',
-              'in',
-              [partnerId],
-            ],
-          ];
-
-          final searchResponse = await OdooService.instance.callKw(
-            model: 'discuss.channel',
-            method: 'search_read',
-            args: [domain],
-            kwargs: {
-              'fields': ['id', 'channel_partner_ids'],
-              'limit': 100, // Fetch recent chats to find if it exists
-            },
-          );
-
-          if (searchResponse is List && searchResponse.isNotEmpty) {
-            // Find a chat that has EXACTLY us and the target partner
-            final uid = OdooService.instance.uid;
-            int? myPartnerId;
-            if (uid != null) {
-              myPartnerId = await _getPartnerId(uid);
-            }
-
-            for (var channel in searchResponse) {
-              if (channel['channel_partner_ids'] is List) {
-                List<int> pIds = [];
-                for (var p in channel['channel_partner_ids']) {
-                  if (p is int) {
-                    pIds.add(p);
-                  } else if (p is List && p.isNotEmpty) {
-                    pIds.add(p[0] as int);
-                  }
-                }
-
-                // A chat is direct if it has exactly 2 members, and one is the partner
-                // Or if myPartnerId is known, it has both.
-                if (myPartnerId != null) {
-                  if (pIds.contains(partnerId) &&
-                      pIds.contains(myPartnerId) &&
-                      pIds.length <= 2) {
-                    return channel['id'] as int?;
-                  }
-                } else {
-                  if (pIds.contains(partnerId) && pIds.length <= 2) {
-                    return channel['id'] as int?;
-                  }
-                }
-              }
-            }
-          }
-        } catch (_) {}
-
-        // If search fails or nothing is found, create it manually as a last resort
-        final createArgs = [
-          {
-            'channel_partner_ids': [
-              [
-                4,
-                partnerId,
-              ], // Odoo automatically adds the current user's partner to the chat
-            ],
-            'channel_type': 'chat',
-            'name': '',
-          },
-        ];
-
-        try {
-          final fallbackResponse = await OdooService.instance.callKw(
-            model: 'discuss.channel',
-            method: 'create',
-            args: createArgs,
-            kwargs: {},
-          );
-          return fallbackResponse as int?;
-        } catch (finalE) {
-          lastError = finalE;
-        }
-      }
+        if (response is Map) return response['id'] as int?;
+        if (response is int) return response;
+      } catch (_) {}
+      return null;
     }
-
-    if (response != null) {
-      if (response is Map) {
-        return response['id'] as int?;
-      } else if (response is int) {
-        return response;
-      } else if (response is List &&
-          response.isNotEmpty &&
-          response[0] is Map) {
-        return response[0]['id'] as int?;
-      }
-    }
-
-    if (lastError != null) {
-      throw Exception("Odoo API Error: $lastError");
-    }
-    return null;
   }
 }

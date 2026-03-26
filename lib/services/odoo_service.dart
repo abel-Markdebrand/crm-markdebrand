@@ -45,7 +45,7 @@ class OdooService {
   bool _isWhatsAppInitializing = false;
   int? _whatsappUid;
   final String _whatsappUrl = "https://app.prismahexagon.com";
-  final String _whatsappDb = "mardebran"; // Corrected from markdebrand
+  final String _whatsappDb = "mardebran"; // Primary DB name
   final String _whatsappUser = "admin";
   final String _whatsappPassword =
       "310af0e42590d120613b006ff1144072069dc262"; // OFFICIAL API KEY
@@ -130,17 +130,6 @@ class OdooService {
         apiKey: _whatsappPassword,
       );
 
-      // RETRY LOGIC: If 'mardebran' failed, try 'markdebrand' (just in case)
-      if (adminUid == null && targetDb == "mardebran") {
-        debugPrint(
-          "WhatsApp Client: Retrying with fallback DB 'markdebrand'...",
-        );
-        adminUid = await authenticatePrisma(
-          db: "markdebrand",
-          user: _whatsappUser,
-          apiKey: _whatsappPassword,
-        );
-      }
 
       if (adminUid != null) {
         _whatsappUid = adminUid;
@@ -363,12 +352,12 @@ class OdooService {
           return;
         } else {
           throw OdooServiceException(
-            "Crendenciales inválidas para el servidor de producción.",
+            "Invalid credentials for the production server.",
           );
         }
       } catch (e) {
         debugPrint("Prisma Auth Error: $e");
-        throw OdooServiceException("Error conectando con el servidor: $e");
+        throw OdooServiceException("Error connecting to server: $e");
       }
     }
 
@@ -394,10 +383,10 @@ class OdooService {
       }
     } on OdooException catch (e) {
       debugPrint("Odoo Auth Error: $e");
-      throw OdooServiceException("Usuario o contraseña incorrectos.");
+      throw OdooServiceException("Incorrect username or password.");
     } catch (e) {
       debugPrint("Standard Auth Error: $e");
-      throw OdooServiceException("No se pudo conectar al servidor.");
+      throw OdooServiceException("Could not connect to the server.");
     }
   }
 
@@ -472,6 +461,11 @@ class OdooService {
             'notification_type',
             'signature',
             'attendance_pin',
+            'image_1920',
+            'image_1024',
+            'image_512',
+            'image_256',
+            'image_128',
           ],
         },
       );
@@ -495,6 +489,11 @@ class OdooService {
             'company_id',
             'notification_type',
             'signature',
+            'image_1920',
+            'image_1024',
+            'image_512',
+            'image_256',
+            'image_128',
           ],
         },
       );
@@ -522,7 +521,7 @@ class OdooService {
             [partnerId],
           ],
           kwargs: {
-            'fields': ['phone', 'mobile', 'function', 'email'],
+            'fields': ['phone', 'mobile', 'function', 'email', 'image_1920', 'image_1024', 'image_512', 'image_256', 'image_128'],
           },
         );
 
@@ -582,7 +581,7 @@ class OdooService {
       return true;
     } catch (e) {
       debugPrint("Error updating user preferences: $e");
-      return false;
+      rethrow; // Rethrow to let the UI handle the specific error
     }
   }
 
@@ -603,7 +602,7 @@ class OdooService {
       return true;
     } catch (e) {
       debugPrint("Error updating partner preferences: $e");
-      return false;
+      rethrow; // Rethrow to let the UI handle the specific error
     }
   }
 
@@ -735,7 +734,7 @@ class OdooService {
     } on OdooException catch (e) {
       debugPrint("❌ Odoo RPC Error ($model.$method):");
       debugPrint("   Message: ${e.message}");
-      throw OdooServiceException("Error del servidor Odoo: ${e.message}");
+      throw OdooServiceException("Odoo server error: ${e.message}");
     } catch (e) {
       debugPrint("❌ Unknown RPC Error ($model.$method): $e");
       if (e is http.Response) {
@@ -747,10 +746,10 @@ class OdooService {
           e.toString().contains("Network is unreachable") ||
           e.toString().contains("Connection refused")) {
         throw OdooServiceException(
-          "Error de conexión: Verifica tu internet o el servidor.",
+          "Connection error: Check your internet or the server.",
         );
       }
-      throw OdooServiceException("Error desconocido: $e");
+      throw OdooServiceException("Unknown error: $e");
     }
   }
 
@@ -2755,6 +2754,8 @@ class OdooService {
             'display_name',
             'message_needaction_counter',
             'channel_partner_ids',
+            'image_128',
+            'image_1920',
           ],
           'order': 'id desc',
         },
@@ -2836,4 +2837,34 @@ class OdooService {
   }
 
   int? get currentPartnerId => _mainPartnerId;
+
+  /// Helper to get the best available image from a record's data map
+  static String? getBestImage(Map<String, dynamic>? data) {
+    if (data == null) return null;
+
+    final imageFields = [
+      'image_1920',
+      'image_1024',
+      'image_512',
+      'image_256',
+      'image_128',
+    ];
+
+    for (var field in imageFields) {
+      final value = data[field];
+      if (value != null && value is String && value.isNotEmpty && value != 'false') {
+        return sanitizeBase64(value);
+      }
+    }
+
+    return null;
+  }
+
+  static String sanitizeBase64(String base64String) {
+    if (base64String.isEmpty) return '';
+    if (base64String.contains(',')) {
+      base64String = base64String.split(',').last;
+    }
+    return base64String.replaceAll(RegExp(r'\s+'), '');
+  }
 }

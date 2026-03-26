@@ -30,7 +30,7 @@ class _DatabaseConfigScreenState extends State<DatabaseConfigScreen> {
     if (dbName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor ingrese el nombre de la base de datos.'),
+          content: Text('Please enter the database name.'),
         ),
       );
       return;
@@ -44,7 +44,7 @@ class _DatabaseConfigScreenState extends State<DatabaseConfigScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Base de datos guardada correctamente.'),
+            content: Text('Database saved successfully.'),
           ),
         );
         // Navigate back or to login
@@ -66,44 +66,47 @@ class _DatabaseConfigScreenState extends State<DatabaseConfigScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Configurar Base de Datos")),
+      appBar: AppBar(
+        title: const Text("Configure Database"),
+        foregroundColor: const Color(0xFF007AFF),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Instrucciones",
+              "Instructions",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             const Text(
-              "Para conectar con su servidor Odoo, necesitamos el nombre exacto de la base de datos. Siga estos pasos para encontrarlo:",
+              "To connect to your Odoo server, we need the exact name of the database. Follow these steps to find it:",
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 16),
-            _buildStep(1, "Inicie sesión en su Odoo desde un navegador web."),
-            _buildStep(2, "Vaya a Ajustes (Settings)."),
+            _buildStep(1, "Login to your Odoo from a web browser."),
+            _buildStep(2, "Go to Settings."),
             _buildStep(
               3,
-              "Desplácese hacia abajo y haga clic en 'Activar modo desarrollador'.",
+              "Scroll down and click 'Activate developer mode'.",
             ),
             _buildStep(
               4,
-              "Una vez activado, el nombre de la base de datos aparecerá en la parte superior derecha de la barra de navegación, o puede verlo en la URL si es `midominio.com?db=nombre_bd`.",
+              "Once activated, the database name will appear in the top right of the navigation bar, or you can see it in the URL if it is `yourdomain.com?db=db_name`.",
             ),
             const SizedBox(height: 24),
             const Text(
-              "Ingrese el nombre de la base de datos:",
+              "Enter the database name:",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _dbController,
               decoration: const InputDecoration(
-                hintText: "Ej: mardebran, test19, produccion",
+                hintText: "e.g. mdb_prod, sales",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.storage),
+                prefixIcon: Icon(Icons.storage, color: Color(0xFF007AFF)),
               ),
             ),
             const SizedBox(height: 32),
@@ -114,7 +117,7 @@ class _DatabaseConfigScreenState extends State<DatabaseConfigScreen> {
                 onPressed: _isLoading ? null : _saveDatabase,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Guardar y Continuar"),
+                    : const Text("Save and Continue"),
               ),
             ),
           ],

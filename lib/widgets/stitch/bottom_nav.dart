@@ -87,7 +87,7 @@ class StitchBottomNav extends StatelessWidget {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isActive = currentIndex == index;
-    const kActiveColor = Color(0xFF6366F1); // Brand Indigo
+    const kActiveColor = Color(0xFF007AFF); // Markdebrand Blue
     const kInactiveColor = Color(0xFF94A3B8); // Muted
     final color = isActive ? kActiveColor : kInactiveColor;
     return GestureDetector(

@@ -29,7 +29,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
 
   // Controllers
   final _nameController = TextEditingController(
-    text: "Branding Project - Markdebrand",
+    text: "Markdebrand Projects",
   );
   final _revenueController = TextEditingController(text: "");
   final _emailController = TextEditingController();
@@ -149,9 +149,9 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
   @override
   Widget build(BuildContext context) {
     // Colors from design
-    const kPrimaryColor = Color(0xFF0d59f2);
+    const kPrimaryColor = Color(0xFF007AFF);
     const kBgLight = Color(0xFFf5f6f8);
-    const kTextDark = Color(0xFF0d121c);
+    const kTextDark = Color(0xFF0F172A);
 
     return Container(
       decoration: const BoxDecoration(
@@ -171,7 +171,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
               width: 48,
               height: 6,
               decoration: BoxDecoration(
-                color: const Color(0xFFced7e8),
+                color: const Color(0xFFDEDEDB),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -251,7 +251,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
                       const SizedBox(height: 8),
                       _buildCustomerSearch(),
                       const SizedBox(height: 16),
-                      const Divider(height: 1, color: Color(0xFFf1f5f9)),
+                      const Divider(height: 1, color: Color(0xFFF0F0FB)),
                       const SizedBox(height: 16),
                     ],
 
@@ -374,7 +374,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
               color: kBgLight,
-              border: Border(top: BorderSide(color: Color(0xFFced7e8))),
+              border: Border(top: BorderSide(color: Color(0xFFDEDEDB))),
             ),
             child: Column(
               children: [
@@ -413,7 +413,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: kTextDark,
-                    side: const BorderSide(color: Color(0xFFced7e8)),
+                    side: const BorderSide(color: Color(0xFFDEDEDB)),
                     minimumSize: const Size(double.infinity, 54),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -442,12 +442,12 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0xFFced7e8)),
+              border: Border.all(color: const Color(0xFFDEDEDB)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const Icon(Icons.person, color: Color(0xFF0d59f2)),
+                const Icon(Icons.person, color: Color(0xFF007AFF)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -498,7 +498,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
               margin: const EdgeInsets.only(top: 4),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: const Color(0xFFced7e8)),
+                border: Border.all(color: const Color(0xFFDEDEDB)),
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
@@ -569,12 +569,12 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
           height: 48,
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF0d59f2).withValues(alpha: 0.05)
+                ? const Color(0xFF007AFF).withValues(alpha: 0.05)
                 : Colors.white,
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF0d59f2)
-                  : const Color(0xFFced7e8),
+                  ? const Color(0xFF007AFF)
+                  : const Color(0xFFDEDEDB),
               width: isSelected ? 2 : 1,
             ),
             borderRadius: BorderRadius.circular(8),
@@ -583,7 +583,7 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
           child: Text(
             title,
             style: TextStyle(
-              color: isSelected ? const Color(0xFF0d121c) : Colors.grey[700],
+              color: isSelected ? const Color(0xFF007AFF) : Colors.grey[700],
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -607,11 +607,11 @@ class _ConvertOpportunityModalState extends State<ConvertOpportunityModal> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFced7e8)),
+        borderSide: const BorderSide(color: Color(0xFFDEDEDB)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF0d59f2), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF007AFF), width: 2),
       ),
     );
   }

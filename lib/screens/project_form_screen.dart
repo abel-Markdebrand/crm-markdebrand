@@ -90,7 +90,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
     } else if (mounted) {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error al guardar el proyecto')),
+        const SnackBar(content: Text('Error saving project')),
       );
     }
   }
@@ -101,7 +101,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
           context: context,
           delegate: OdooSearchDelegate(
             searchFn: _projectService.searchPartners,
-            title: 'Seleccionar Cliente',
+            title: 'Select Client',
           ),
         );
     if (partner != null) {
@@ -114,7 +114,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
       context: context,
       delegate: OdooSearchDelegate(
         searchFn: _projectService.searchUsers,
-        title: 'Seleccionar Responsable',
+        title: 'Select Responsible',
       ),
     );
     if (user != null) {
@@ -130,7 +130,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          isEditing ? "Editar Proyecto" : "Nuevo Proyecto",
+          isEditing ? "Edit Project" : "New Project",
           style: GoogleFonts.inter(
             color: const Color(0xFF0F172A),
             fontWeight: FontWeight.bold,
@@ -160,7 +160,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
             TextButton(
               onPressed: _save,
               child: Text(
-                "Guardar",
+                "Save",
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF2563EB),
@@ -174,37 +174,37 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            _buildSectionTitle("Información General"),
+            _buildSectionTitle("General Information"),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _nameController,
-              label: "Nombre del Proyecto",
-              placeholder: "Ej: Desarrollo App Móvil",
-              validator: (v) => v == null || v.isEmpty ? "Requerido" : null,
+              label: "Project Name",
+              placeholder: "e.g., Mobile App Development",
+              validator: (v) => v == null || v.isEmpty ? "Required" : null,
             ),
             const SizedBox(height: 24),
-            _buildSectionTitle("Asignación"),
+            _buildSectionTitle("Assignment"),
             const SizedBox(height: 16),
             _buildSelector(
-              label: "Cliente",
-              value: _selectedPartner?['name'] ?? "Seleccionar cliente",
+              label: "Client",
+              value: _selectedPartner?['name'] ?? "Select client",
               onTap: _selectPartner,
               icon: Icons.business_rounded,
             ),
             const SizedBox(height: 16),
             _buildSelector(
-              label: "Responsable",
-              value: _selectedUser?['name'] ?? "Seleccionar responsable",
+              label: "Responsible",
+              value: _selectedUser?['name'] ?? "Select responsible",
               onTap: _selectUser,
               icon: Icons.person_rounded,
             ),
             const SizedBox(height: 24),
-            _buildSectionTitle("Descripción"),
+            _buildSectionTitle("Description"),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _descriptionController,
-              label: "Notas o descripción",
-              placeholder: "Detalles adicionales del proyecto...",
+              label: "Notes or description",
+              placeholder: "Additional project details...",
               maxLines: 5,
             ),
           ],
@@ -316,7 +316,7 @@ class _ProjectFormScreenState extends State<ProjectFormScreen> {
                     value,
                     style: GoogleFonts.inter(
                       fontSize: 15,
-                      color: value.contains("Seleccionar")
+                      color: value.contains("Select")
                           ? const Color(0xFF94A3B8)
                           : const Color(0xFF0F172A),
                     ),
@@ -374,7 +374,7 @@ class OdooSearchDelegate extends SearchDelegate<Map<String, dynamic>?> {
     if (query.length < 2) {
       return Center(
         child: Text(
-          "Escribe al menos 2 letras para buscar",
+          "Type at least 2 letters to search",
           style: GoogleFonts.inter(color: Colors.grey),
         ),
       );
@@ -390,7 +390,7 @@ class OdooSearchDelegate extends SearchDelegate<Map<String, dynamic>?> {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("No se encontraron resultados"));
+          return const Center(child: Text("No results found"));
         }
         return ListView.separated(
           itemCount: snapshot.data!.length,

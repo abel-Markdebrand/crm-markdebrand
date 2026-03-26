@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'invoice_detail_screen.dart'; // Import added for navigation
 import '../services/pdf_service.dart';
 import 'pdf_viewer_screen.dart';
+import '../utils/odoo_utils.dart';
 
 class SaleDetailScreen extends StatefulWidget {
   final int saleId;
@@ -39,7 +40,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = OdooUtils.getFriendlyError(e);
           _isLoading = false;
         });
       }
@@ -55,23 +56,22 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
       if (mounted) {
         if (invoiceId != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Venta confirmada y Factura creada")),
+            const SnackBar(content: Text("Sale confirmed and Invoice created")),
           );
           _navigateToInvoice(invoiceId);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                "Venta confirmada pero no se pudo abrir la factura.",
-              ),
+              content: Text("Sale confirmed but could not open the invoice."),
             ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
+        final friendlyMsg = OdooUtils.getFriendlyError(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyMsg), backgroundColor: Colors.red),
         );
       }
       setState(() => _isLoading = false);
@@ -86,12 +86,12 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
       if (mounted) {
         if (invoiceId != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Factura creada exitosamente")),
+            const SnackBar(content: Text("Invoice created successfully")),
           );
           _navigateToInvoice(invoiceId);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("No se pudo crear la factura.")),
+            const SnackBar(content: Text("Could not create the invoice.")),
           );
         }
       }
@@ -128,8 +128,9 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     try {
       // 1. Fetch Partner Address
       final partner = await _odoo.getContactDetail(_sale!.partnerId);
+      final countryName = OdooUtils.safeM2OName(partner['country_id']);
       final address =
-          "${partner['street'] ?? ''}\n${partner['city'] ?? ''}, ${partner['country_id']?[1] ?? ''}";
+          "${OdooUtils.safeString(partner['street'])}\n${OdooUtils.safeString(partner['city'])}, $countryName";
 
       // 2. Map Lines
       final List<Map<String, dynamic>> pdfLines = _sale!.lines.map((l) {
@@ -234,7 +235,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
             ),
             child: const Icon(
               Icons.arrow_back_ios_new,
-              color: Color(0xFF007AFF),
+              color: Color(0xFFC8102E),
               size: 20,
             ),
           ),
@@ -252,7 +253,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: Image.asset(
-                  'assets/image/logo_mdb.png',
+                  'assets/image/logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
@@ -286,9 +287,9 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF9B3232)),
+            icon: const Icon(Icons.picture_as_pdf, color: Color(0xFFC8102E)),
             onPressed: _viewSalePdf,
-            tooltip: "Ver PDF",
+            tooltip: "View PDF",
           ),
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -492,14 +493,14 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                             children: const [
                               Icon(
                                 Icons.add_circle,
-                                color: Color(0xFF007AFF),
+                                color: Color(0xFFC8102E),
                                 size: 16,
                               ),
                               SizedBox(width: 4),
                               Text(
                                 "Add Line",
                                 style: TextStyle(
-                                  color: Color(0xFF007AFF),
+                                  color: Color(0xFFC8102E),
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -659,7 +660,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                       _sale!.amountTotal,
                                     ),
                                     style: const TextStyle(
-                                      color: Color(0xFF007AFF),
+                                      color: Color(0xFFC8102E),
                                       fontSize: 24,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -708,12 +709,12 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                         child: ElevatedButton(
                           onPressed: _confirmAndInvoiceSale,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
+                            backgroundColor: const Color(0xFFC8102E),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 4,
                             shadowColor: const Color(
-                              0xFF007AFF,
+                              0xFFC8102E,
                             ).withValues(alpha: 0.2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -725,7 +726,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               Icon(Icons.check_circle_outline, size: 20),
                               SizedBox(width: 8),
                               Text(
-                                "Confirmar y Facturar",
+                                "Confirm and Invoice",
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -761,12 +762,12 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                         child: ElevatedButton(
                           onPressed: _createInvoice,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
+                            backgroundColor: const Color(0xFFC8102E),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 4,
                             shadowColor: const Color(
-                              0xFF007AFF,
+                              0xFFC8102E,
                             ).withValues(alpha: 0.2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -778,7 +779,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               Icon(Icons.add_card, size: 20),
                               SizedBox(width: 8),
                               Text(
-                                "Crear Factura",
+                                "Create Invoice",
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,

@@ -129,7 +129,7 @@ class _AttendanceActionWidgetState extends State<AttendanceActionWidget> {
           ),
           const SizedBox(height: 8),
           Text(
-            "SESIÓN EN CURSO",
+            "SESSION IN PROGRESS",
             style: GoogleFonts.inter(
               fontSize: 12,
               color: const Color(0xFF10B981),
@@ -139,7 +139,7 @@ class _AttendanceActionWidgetState extends State<AttendanceActionWidget> {
           ),
           if (_checkInTime != null)
             Text(
-              "Desde ${DateFormat('HH:mm').format(_checkInTime!)}",
+              "Started at ${DateFormat('HH:mm').format(_checkInTime!)}",
               style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xFF64748B),
@@ -156,7 +156,7 @@ class _AttendanceActionWidgetState extends State<AttendanceActionWidget> {
           ),
           const SizedBox(height: 8),
           Text(
-            "SISTEMA LISTO",
+            "SYSTEM READY",
             style: GoogleFonts.inter(
               fontSize: 12,
               color: const Color(0xFF64748B),
@@ -207,7 +207,7 @@ class _AttendanceActionWidgetState extends State<AttendanceActionWidget> {
             ),
             const SizedBox(height: 12),
             Text(
-              _isCheckedIn ? "MARCAR SALIDA" : "MARCAR ENTRADA",
+              _isCheckedIn ? "CHECK OUT" : "CHECK IN",
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 color: Colors.white,

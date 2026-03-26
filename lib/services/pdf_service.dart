@@ -10,7 +10,7 @@ class PdfService {
   static final PdfService instance = PdfService._();
   PdfService._();
 
-  final PdfColor maroon = PdfColor.fromInt(0xFF9B3232);
+  final PdfColor mdbBlue = PdfColor.fromInt(0xFF007AFF);
   final PdfColor lightGray = PdfColor.fromInt(0xFFF1F5F9);
   final PdfColor darkSlate = PdfColor.fromInt(0xFF1E293B);
 
@@ -32,7 +32,7 @@ class PdfService {
     // Load Logo asset if exists
     pw.MemoryImage? logo;
     try {
-      final logoData = await rootBundle.load('assets/image/logo_mdb.png');
+      final logoData = await rootBundle.load('assets/image/logo.png');
       logo = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (e) {
       debugPrint("Error loading logo for PDF: $e");
@@ -104,7 +104,7 @@ class PdfService {
               child: pw.Text(
                 "Quotation # $orderName",
                 style: pw.TextStyle(
-                  color: maroon,
+                  color: mdbBlue,
                   fontSize: 28,
                   fontWeight: pw.FontWeight.bold,
                 ),
@@ -144,7 +144,7 @@ class PdfService {
               children: [
                 // Table Header
                 pw.TableRow(
-                  decoration: pw.BoxDecoration(color: maroon),
+                  decoration: pw.BoxDecoration(color: mdbBlue),
                   children: [
                     _tableHeaderCell("DESCRIPTION"),
                     _tableHeaderCell("QUANTITY"),
@@ -199,7 +199,7 @@ class PdfService {
                       _totalRow("Tax 5%", taxes),
                       pw.Divider(color: PdfColors.grey),
                       pw.Container(
-                        color: maroon,
+                        color: mdbBlue,
                         padding: const pw.EdgeInsets.all(8),
                         child: pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -328,7 +328,7 @@ class PdfService {
 
     pw.MemoryImage? logo;
     try {
-      final logoData = await rootBundle.load('assets/image/logo_mdb.png');
+      final logoData = await rootBundle.load('assets/image/logo.png');
       logo = pw.MemoryImage(logoData.buffer.asUint8List());
     } catch (e) {
       debugPrint("Error loading logo for PDF: $e");
@@ -397,7 +397,7 @@ class PdfService {
               child: pw.Text(
                 "Invoice # $invoiceName",
                 style: pw.TextStyle(
-                  color: maroon,
+                  color: mdbBlue,
                   fontSize: 28,
                   fontWeight: pw.FontWeight.bold,
                 ),
@@ -432,7 +432,7 @@ class PdfService {
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               children: [
                 pw.TableRow(
-                  decoration: pw.BoxDecoration(color: maroon),
+                  decoration: pw.BoxDecoration(color: mdbBlue),
                   children: [
                     _tableHeaderCell("DESCRIPTION"),
                     _tableHeaderCell("QUANTITY"),
@@ -482,7 +482,7 @@ class PdfService {
                       _totalRow("Tax 5%", taxes),
                       pw.Divider(color: PdfColors.grey),
                       pw.Container(
-                        color: maroon,
+                        color: mdbBlue,
                         padding: const pw.EdgeInsets.all(8),
                         child: pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,

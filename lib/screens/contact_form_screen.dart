@@ -106,9 +106,7 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
       _notesController.text = p['comment'] is String ? p['comment'] : '';
       _isCompany = p['is_company'] == true;
 
-      if (p['image_1920'] is String && (p['image_1920'] as String).isNotEmpty) {
-        _base64Image = p['image_1920'];
-      }
+      _base64Image = OdooService.getBestImage(p);
     }
   }
 
@@ -173,7 +171,7 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
 
   Future<void> _save() async {
     if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Por favor ingrese un nombre")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter a name")));
       return;
     }
 
@@ -201,7 +199,7 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
       if (widget.partner == null) {
         await _odooService.createContact(data);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("¡Contacto creado exitosamente!")));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Contact created successfully!")));
           Navigator.pop(context, true);
         }
       } else {
@@ -209,14 +207,14 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
         if (id is int) {
           await _odooService.updateContact(id, data);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("¡Contacto actualizado exitosamente!")));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Contact updated successfully!")));
             Navigator.pop(context, true);
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar: $e"), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error saving: $e"), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -421,7 +419,7 @@ class _ContactFormScreenState extends State<ContactFormScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _buildMiniRadio("Persona", !_isCompany, () => setState(() => _isCompany = false)),
+                  _buildMiniRadio("Individual", !_isCompany, () => setState(() => _isCompany = false)),
                   const SizedBox(width: 16),
                   _buildMiniRadio("Company", _isCompany, () => setState(() => _isCompany = true)),
                 ],

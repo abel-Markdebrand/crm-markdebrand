@@ -97,7 +97,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.project['name'] ?? "Tareas",
+              widget.project['name'] ?? "Tasks",
               style: GoogleFonts.inter(
                 color: const Color(0xFF0F172A),
                 fontWeight: FontWeight.bold,
@@ -105,7 +105,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
               ),
             ),
             Text(
-              "Lista por Etapas",
+              "List by Stages",
               style: GoogleFonts.inter(
                 color: const Color(0xFF64748B),
                 fontSize: 11,
@@ -118,7 +118,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
           IconButton(
             icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF2563EB)),
             onPressed: _editProject,
-            tooltip: "Editar Proyecto",
+            tooltip: "Edit Project",
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Color(0xFF0F172A)),
@@ -140,7 +140,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
                     _selectedStageId,
                     _stages.firstWhere(
                       (s) => s['id'] == _selectedStageId,
-                      orElse: () => {'name': 'Etapa'},
+                      orElse: () => {'name': 'Stage'},
                     )['name'],
                   ],
                 }
@@ -149,7 +149,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
         backgroundColor: const Color(0xFF2563EB),
         icon: const Icon(Icons.add_task_rounded, color: Colors.white),
         label: Text(
-          "Tarea",
+          "Task",
           style: GoogleFonts.inter(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -181,7 +181,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            "No se encontraron tareas",
+            "No tasks found",
             style: GoogleFonts.inter(
               color: const Color(0xFF64748B),
               fontSize: 16,
@@ -191,7 +191,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadData,
-            child: const Text("Reintentar Carga"),
+            child: const Text("Retry Load"),
           ),
         ],
       ),
@@ -215,7 +215,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
             'id': sid,
             'name': taskWithStage['stage_id'] is List
                 ? taskWithStage['stage_id'][1]
-                : 'Sin Etapa',
+                : 'No Stage',
           });
         }
       }
@@ -234,7 +234,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          _buildTabChip(null, "Todas"),
+          _buildTabChip(null, "All"),
           ...allAvailableStages.map((s) => _buildTabChip(s['id'], s['name'])),
         ],
       ),
@@ -279,7 +279,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
     if (filteredTasks.isEmpty) {
       return Center(
         child: Text(
-          "No hay tareas en esta etapa",
+          "No tasks in this stage",
           style: GoogleFonts.inter(color: Colors.grey, fontSize: 13),
         ),
       );
@@ -301,7 +301,7 @@ class _ProjectTaskListScreenState extends State<ProjectTaskListScreen> {
   Widget _buildTaskCard(Map<String, dynamic> task) {
     final String name = task['name'] is String
         ? task['name']
-        : 'Tarea sin nombre';
+        : 'Unnamed Task';
     final List<String> assigneeNames = task['assignee_names'] is List
         ? List<String>.from(task['assignee_names'])
         : [];

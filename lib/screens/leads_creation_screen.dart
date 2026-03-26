@@ -60,20 +60,20 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
 
   // --- SELECTION OPTIONS ---
   static const List<String> _opportunityNames = [
-    "Desarrollo Módulos Odoo",
-    "Desarrollo OnePage",
-    "Desarrollo Agente IA",
-    "Desarrollo de APK",
-    "Desarrollo E-Commerce",
-    "Desarrollo Website",
-    "Desarrollo LMS",
-    "Desarrollo Landing Page",
-    "Desarrollo de Marca",
-    "Seo on Page y Mantenimiento Seo",
+    "Odoo Module Development",
+    "OnePage Development",
+    "AI Agent Development",
+    "APK Development",
+    "E-Commerce Development",
+    "Website Development",
+    "LMS Development",
+    "Landing Page Development",
+    "Branding Development",
+    "On-Page SEO and Maintenance",
     "Community Manager",
-    "Funcionalidades Avanzadas",
-    "Tarea Menor",
-    "No Aplica",
+    "Advanced Features",
+    "Minor Task",
+    "Not Applicable",
   ];
 
   static const List<String> _campaignOptions = ["InBound", "OutBound"];
@@ -92,9 +92,9 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     "WIX MDB OutBound",
     "WIX Prisma InBound",
     "WIX Prisma OutBound",
-    "Cliente",
-    "Facebook Campana",
-    "Facebook Grupo",
+    "Customer",
+    "Facebook Campaign",
+    "Facebook Group",
     "Facebook Post",
     "Facebook InBound",
     "Instagram InBound",
@@ -106,8 +106,8 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
 
   static const List<String> _nicheOptions = [
     "Undefined",
-    "Estudiantes",
-    "Error Solicitud",
+    "Students",
+    "Request Error",
     "Restaurant",
     "Real State",
     "Supermarkets",
@@ -136,13 +136,13 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     "Construction",
     "Hospitality",
     "Renewable Energy",
-    "Entertaiment",
+    "Entertainment",
   ];
 
   // Tags Logic (Hardcoded as per request)
   final List<Map<String, dynamic>> _tagOptions = [
     {'id': -1, 'name': 'Viable'},
-    {'id': -2, 'name': 'No Viable'},
+    {'id': -2, 'name': 'Not Viable'},
   ];
   final List<dynamic> _selectedTags = [];
   String? _selectedNiche = "Undefined";
@@ -1114,7 +1114,7 @@ class _LeadCreationScreenState extends State<LeadCreationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInputLabel("Prioridad"),
+        _buildInputLabel("Priority"),
         const SizedBox(height: 8),
         Row(
           children: List.generate(3, (index) {

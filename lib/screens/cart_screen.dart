@@ -59,7 +59,7 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _processSale() async {
     if (_selectedProducts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Seleccione al menos un producto.')),
+        const SnackBar(content: Text('Select at least one product.')),
       );
       return;
     }
@@ -94,7 +94,7 @@ class _CartScreenState extends State<CartScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error al procesar venta: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error processing sale: $e')));
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -104,13 +104,13 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Productos a Facturar')),
+      appBar: AppBar(title: const Text('Products to Invoice')),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: SearchableDropdown<Map<String, dynamic>>(
-              label: "Agregar Producto",
+              label: "Add Product",
               value: _selectedProduct,
               asyncItems: (query) async {
                 try {
@@ -122,7 +122,7 @@ class _CartScreenState extends State<CartScreen> {
               },
               itemLabel: (item) => "${item['name']} (\$${item['list_price']})",
               onChanged: _onProductSelected,
-              hint: "Buscar y agregar producto...",
+              hint: "Search and add product...",
               icon: Icons.add_shopping_cart,
             ),
           ),
@@ -130,7 +130,7 @@ class _CartScreenState extends State<CartScreen> {
             child: _selectedProducts.isEmpty
                 ? Center(
                     child: Text(
-                      'Agregue productos con el botón (+)',
+                      'Add products with the (+) button',
                       style: TextStyle(color: Colors.grey[500]),
                     ),
                   )
@@ -140,7 +140,7 @@ class _CartScreenState extends State<CartScreen> {
                       final item = _selectedProducts[index];
                       return ListTile(
                         title: Text(item['name']),
-                        subtitle: Text("Cantidad: ${item['qty']}"),
+                        subtitle: Text("Quantity: ${item['qty']}"),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _removeProduct(index),
@@ -162,7 +162,7 @@ class _CartScreenState extends State<CartScreen> {
                 onPressed: _isProcessing ? null : _processSale,
                 icon: const Icon(Icons.check_circle),
                 label: Text(
-                  _isProcessing ? "PROCESANDO..." : "CONFIRMAR Y FACTURAR",
+                  _isProcessing ? "PROCESSING..." : "CONFIRM & INVOICE",
                 ),
               ),
             ),
@@ -187,7 +187,7 @@ class _QtyDialogState extends State<_QtyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text("Cantidad"),
+      title: const Text("Quantity"),
       content: TextField(
         controller: _controller,
         keyboardType: TextInputType.number,
@@ -197,7 +197,7 @@ class _QtyDialogState extends State<_QtyDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancelar"),
+          child: const Text("Cancel"),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, _controller.text),

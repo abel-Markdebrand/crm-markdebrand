@@ -27,7 +27,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
     if (url.isEmpty || dbName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor complete todos los campos.')),
+        const SnackBar(content: Text('Please complete all fields.')),
       );
       return;
     }
@@ -50,7 +50,7 @@ class _SetupScreenState extends State<SetupScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error saving: $e')));
       }
     } finally {
       if (mounted) {
@@ -70,35 +70,35 @@ class _SetupScreenState extends State<SetupScreen> {
             children: [
               const SizedBox(height: 48),
               const Text(
-                "Configuración Inicial",
+                "Initial Setup",
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               const Text(
-                "Antes de comenzar, necesitamos conectar con tu servidor Odoo.",
+                "Before starting, we need to connect to your Odoo server.",
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 48),
 
-              _buildLabel("URL del Servidor"),
+              _buildLabel("Server URL"),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _urlController,
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(
-                  hintText: "https://midominio.com",
+                  hintText: "https://yourdomain.com",
                   prefixIcon: Icon(Icons.link),
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 24),
 
-              _buildLabel("Base de Datos"),
+              _buildLabel("Database"),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _dbController,
                 decoration: const InputDecoration(
-                  hintText: "Ej: produccion",
+                  hintText: "e.g. production",
                   prefixIcon: Icon(Icons.storage),
                   border: OutlineInputBorder(),
                 ),
@@ -122,7 +122,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
-                          "Guardar y Continuar",
+                          "Save and Continue",
                           style: TextStyle(fontSize: 16),
                         ),
                 ),
@@ -149,22 +149,22 @@ class _SetupScreenState extends State<SetupScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
+        color: const Color(0xFFE7F0FE), // Light Blue
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue[100]!),
+        border: Border.all(color: const Color(0xFFC2D9FF)), // Border Light Blue
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: const [
           Text(
-            "¿Cómo encontrar el nombre de la DB?",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+            "How to find the DB name?",
+            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF112038)), // Midnight Blue
           ),
           SizedBox(height: 8),
           Text(
-            "1. Ve a Ajustes en tu Odoo.\n"
-            "2. Activa el 'Modo Desarrollador'.\n"
-            "3. El nombre aparecerá en la barra superior.",
+            "1. Go to Settings in your Odoo.\n"
+            "2. Activate 'Developer Mode'.\n"
+            "3. The name will appear in the top bar.",
             style: TextStyle(fontSize: 13, height: 1.4),
           ),
         ],

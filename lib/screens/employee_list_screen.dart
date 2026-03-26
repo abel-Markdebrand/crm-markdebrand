@@ -160,9 +160,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    employee.image1920 != null && employee.image1920!.isNotEmpty
+                    employee.getBestImage() != null
                         ? Image.memory(
-                            base64Decode(employee.image1920!),
+                            base64Decode(employee.getBestImage()!),
                             fit: BoxFit.cover,
                           )
                         : Container(

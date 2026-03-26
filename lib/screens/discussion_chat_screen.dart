@@ -281,7 +281,7 @@ class _DiscussionChatScreenState extends State<DiscussionChatScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF2563EB), // Blue 600
+                      color: Color(0xFF007AFF), // Markdebrand Blue
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(

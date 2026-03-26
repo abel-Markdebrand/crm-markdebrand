@@ -5,11 +5,11 @@ import '../config/api_endpoints.dart';
 class ProductService {
   final OdooService _odooService = OdooService.instance;
 
-  /// Buscador de productos por nombre o referencia interna.
-  /// Retorna lista de productos para selección visual.
-  /// Filtra solo productos vendibles ('sale_ok' = true).
+  /// Product searcher by name or internal reference.
+  /// Returns a list of products for visual selection.
+  /// Filters only sellable products ('sale_ok' = true).
   Future<List<dynamic>> searchProducts(String query) async {
-    // Si la consulta es vacía, traer los primeros 20 productos
+    // If query is empty, fetch the first 20 products
     List<dynamic> domain = [
       ['sale_ok', '=', true],
     ];
@@ -33,14 +33,14 @@ class ProductService {
     return result as List<dynamic>;
   }
 
-  /// Crea una Venta Directa (Pedido + Confirmación -> Factura Automática)
+  /// Creates a Direct Sale (Order + Confirmation -> Automatic Invoice)
   Future<bool> createDirectSale({
     required int partnerId,
     required int productId,
     double qty = 1.0,
   }) async {
     try {
-      // 1. Obtener una lista de precios válida
+      // 1. Get a valid pricelist
       final pricelistRes = await _odooService.callKw(
         model: ApiRoutes.products.priceListModel,
         method: ApiRoutes.auth.searchRead,
@@ -55,7 +55,7 @@ class ProductService {
         pricelistId = pricelistRes[0]['id'];
       }
 
-      // 2. Crear el Pedido de Venta con la línea incluida
+      // 2. Create the Sale Order with the line included
       final orderId = await _odooService.callKw(
         model: ApiRoutes.sales.model,
         method: ApiRoutes.auth.create,
@@ -77,7 +77,7 @@ class ProductService {
 
       if (orderId is! int) return false;
 
-      // 3. Confirmar con contexto especial para disparar la automatización de factura
+      // 3. Confirm with special context to trigger invoice automation
       await _odooService.confirmSale(
         orderId,
         context: {'is_mobile_order': true},

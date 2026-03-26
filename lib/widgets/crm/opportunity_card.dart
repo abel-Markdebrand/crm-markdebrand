@@ -27,7 +27,7 @@ class OpportunityCard extends StatelessWidget {
           children: [
             // Cliente
             Text(
-              partnerName.isEmpty ? 'Cliente desconocido' : partnerName,
+              partnerName.isEmpty ? 'Unknown Customer' : partnerName,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 4),
@@ -51,7 +51,7 @@ class OpportunityCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Probabilidad: ${probability.toStringAsFixed(0)}%',
+                        'Probability: ${probability.toStringAsFixed(0)}%',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,

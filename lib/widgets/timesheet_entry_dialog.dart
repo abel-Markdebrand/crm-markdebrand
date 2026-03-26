@@ -105,9 +105,9 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0D59F2),
+              primary: Color(0xFF007AFF),
               onPrimary: Colors.white,
-              onSurface: Color(0xFF0F172A),
+              onSurface: Color(0xFF112038),
             ),
           ),
           child: child!,
@@ -191,7 +191,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF0F172A),
+                color: const Color(0xFF112038),
               ),
               textAlign: TextAlign.center,
             ),
@@ -299,7 +299,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
             ElevatedButton(
               onPressed: _isLoading ? null : _saveEntry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D59F2),
+                backgroundColor: const Color(0xFF007AFF),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -348,7 +348,7 @@ class _TimesheetEntryDialogState extends State<TimesheetEntryDialog> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF0D59F2)),
+        borderSide: const BorderSide(color: Color(0xFF007AFF)),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );

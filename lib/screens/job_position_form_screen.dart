@@ -54,7 +54,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
     // For Interviewers we'll use a mocked text input for now or show count if exists
     _interviewersController = TextEditingController(
       text: widget.jobPosition?.interviewerIds.isNotEmpty == true
-          ? '${widget.jobPosition!.interviewerIds.length} Entrevistador(es)'
+          ? '${widget.jobPosition!.interviewerIds.length} Interviewer(s)'
           : '',
     );
 
@@ -184,8 +184,8 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
       appBar: AppBar(
         title: Text(
           widget.jobPosition == null
-              ? "Crear Puesto de Trabajo"
-              : "Configurar Puesto",
+              ? "Create Job Position"
+              : "Configure Position",
           style: GoogleFonts.inter(
             color: const Color(0xFF0F172A),
             fontWeight: FontWeight.bold,
@@ -213,7 +213,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                   ),
                 ),
                 child: Text(
-                  "Guardar",
+                  "Save",
                   style: GoogleFonts.inter(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -266,7 +266,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                     ),
                     const SizedBox(width: 16),
                     Text(
-                      "Puesto Inicial",
+                      "Initial Position",
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -279,23 +279,23 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                   controller: _nameController,
                   style: GoogleFonts.inter(fontSize: 16),
                   decoration: _inputDecoration(
-                    "Nombre del Puesto",
-                    hint: "p. ej. Gerente de ventas",
+                    "Job Position Name",
+                    hint: "e.g., Sales Manager",
                   ),
-                  validator: (v) => v == null || v.isEmpty ? "Requerido" : null,
+                  validator: (v) => v == null || v.isEmpty ? "Required" : null,
                 ),
                 const SizedBox(height: 24),
                 TextFormField(
                   controller: _aliasController,
                   style: GoogleFonts.inter(fontSize: 16),
                   decoration: _inputDecoration(
-                    "¿Correo electrónico de solicitud?",
-                    hint: "p. ej. empleos",
+                    "Application email?",
+                    hint: "e.g., jobs",
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Los correos entrantes generan solicitudes automáticamente al alias @miempresa.com",
+                  "Incoming emails automatically generate applications to the alias @markdebrand.com",
                   style: GoogleFonts.inter(
                     color: Colors.grey[600],
                     fontSize: 12,
@@ -315,7 +315,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                       ),
                     ),
                     child: Text(
-                      "Continuar Configuración",
+                      "Continue Configuration",
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -366,7 +366,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                         child: Text(
                           _nameController.text.isNotEmpty
                               ? _nameController.text
-                              : "Nuevo Puesto",
+                              : "New Position",
                           style: GoogleFonts.inter(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
@@ -387,7 +387,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                             final url = Uri.parse(
                               widget.jobPosition!.websiteUrl!.startsWith('http')
                                   ? widget.jobPosition!.websiteUrl!
-                                  : 'https://odoo-markdebrand.informatiquecr.com${widget.jobPosition!.websiteUrl!}',
+                                  : 'https://app.markdebrand.com${widget.jobPosition!.websiteUrl!}',
                             );
                             if (await canLaunchUrl(url)) {
                               await launchUrl(
@@ -398,7 +398,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text("No se pudo abrir la URL"),
+                                    content: Text("Could not open URL"),
                                   ),
                                 );
                               }
@@ -407,7 +407,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  "Este puesto no tiene una URL pública configurada",
+                                  "This position does not have a public URL configured",
                                 ),
                               ),
                             );
@@ -418,7 +418,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                           color: Color(0xFF14B8A6),
                         ),
                         label: Text(
-                          "Página del empleo",
+                          "Job Page",
                           style: GoogleFonts.inter(
                             color: const Color(0xFF14B8A6),
                             fontWeight: FontWeight.bold,
@@ -441,7 +441,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
 
             // Hiring Process Card
             _buildCardSection(
-              title: "Proceso de Contratación",
+              title: "Hiring Process",
               icon: Icons.people_alt_outlined,
               children: [
                 DropdownButtonFormField<int>(
@@ -449,7 +449,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                       _employees.any((e) => e.id == _selectedRecruiterId)
                       ? _selectedRecruiterId
                       : null,
-                  decoration: _inputDecoration("¿Contratador?"),
+                  decoration: _inputDecoration("Recruiter?"),
                   items: _employees
                       .fold<List<Employee>>([], (list, item) {
                         if (!list.any((x) => x.id == item.id)) list.add(item);
@@ -468,14 +468,14 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _interviewersController,
-                  decoration: _inputDecoration("¿Entrevistadores?"),
+                  decoration: _inputDecoration("Interviewers?"),
                   style: GoogleFonts.inter(),
                   readOnly: false, // In a real app this opens a multi-select
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _aliasController,
-                  decoration: _inputDecoration("¿Alias de correo electrónico?"),
+                  decoration: _inputDecoration("Email alias?"),
                   style: GoogleFonts.inter(),
                 ),
               ],
@@ -484,7 +484,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
 
             // Job Publication Card
             _buildCardSection(
-              title: "Publicación de Empleo",
+              title: "Job Publication",
               icon: Icons.campaign_outlined,
               children: [
                 Container(
@@ -500,7 +500,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          "¿Publicado en Sitio Web?",
+                          "Published on Website?",
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             color: const Color(0xFF475569),
@@ -519,9 +519,9 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                 TextFormField(
                   controller: _targetEmployeesController,
                   keyboardType: TextInputType.number,
-                  decoration: _inputDecoration("Objetivo (Nuevos empleados)"),
+                  decoration: _inputDecoration("Target (New employees)"),
                   style: GoogleFonts.inter(),
-                  validator: (v) => v == null || v.isEmpty ? "Requerido" : null,
+                  validator: (v) => v == null || v.isEmpty ? "Required" : null,
                 ),
               ],
             ),
@@ -529,7 +529,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
 
             // Work Location Card
             _buildCardSection(
-              title: "Trabajo y Ubicación",
+              title: "Work and Location",
               icon: Icons.business_center_outlined,
               children: [
                 DropdownButtonFormField<int>(
@@ -537,7 +537,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                       _departments.any((d) => d.id == _selectedDepartmentId)
                       ? _selectedDepartmentId
                       : null,
-                  decoration: _inputDecoration("Departamento"),
+                  decoration: _inputDecoration("Department"),
                   items: _departments
                       .fold<List<Department>>([], (list, item) {
                         if (!list.any((x) => x.id == item.id)) list.add(item);
@@ -556,7 +556,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _locationController,
-                  decoration: _inputDecoration("¿Ubicación del trabajo?"),
+                  decoration: _inputDecoration("Work location?"),
                   style: GoogleFonts.inter(),
                 ),
               ],
@@ -565,14 +565,14 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
 
             // Technical Details Card
             _buildCardSection(
-              title: "Detalles del Perfil",
+              title: "Profile Details",
               icon: Icons.list_alt_rounded,
               children: [
                 TextFormField(
                   controller: _employmentTypeController,
                   decoration: _inputDecoration(
-                    "Tipo de empleo",
-                    hint: "p. ej. Tiempo completo, Medio tiempo",
+                    "Employment type",
+                    hint: "e.g., Full time, Part time",
                   ),
                   style: GoogleFonts.inter(),
                 ),
@@ -580,8 +580,8 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                 TextFormField(
                   controller: _degreeController,
                   decoration: _inputDecoration(
-                    "Grado esperado",
-                    hint: "p. ej. Maestría, Licenciatura",
+                    "Expected degree",
+                    hint: "e.g., Master, Bachelor",
                   ),
                   style: GoogleFonts.inter(),
                 ),
@@ -589,8 +589,8 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                 TextFormField(
                   controller: _skillsController,
                   decoration: _inputDecoration(
-                    "Habilidades esperadas",
-                    hint: "p. ej. Ventas, Marketing, Liderazgo",
+                    "Expected skills",
+                    hint: "e.g., Sales, Marketing, Leadership",
                   ),
                   style: GoogleFonts.inter(),
                   maxLines: 2,
@@ -598,7 +598,7 @@ class _JobPositionFormScreenState extends State<JobPositionFormScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _summaryController,
-                  decoration: _inputDecoration("Resumen / Descripción"),
+                  decoration: _inputDecoration("Summary / Description"),
                   style: GoogleFonts.inter(),
                   maxLines: 3,
                 ),

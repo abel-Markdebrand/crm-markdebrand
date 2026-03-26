@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,7 +52,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mardebran',
+      title: 'Markdebrand',
       debugShowCheckedModeBanner: false,
 
       // --- GLOBAL THEME CONFIGURATION ---
@@ -59,46 +60,42 @@ class _MyAppState extends State<MyApp> {
         useMaterial3: true,
         brightness: Brightness.light,
 
-        // 1. COLOR PALETTE (Premium White / Slate palette)
+        // 1. COLOR PALETTE (Markdebrand Blue)
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0F172A), // Slate 900
-          primary: const Color(0xFF0F172A),
-          secondary: const Color(0xFF64748B), // Slate 500
+          seedColor: const Color(0xFF007AFF),
+          primary: const Color(0xFF007AFF),
+          secondary: const Color(0xFF007AFF),
           surface: Colors.white,
-          error: const Color(0xFFEF4444), // Red 500 (Semantic: Danger)
+          error: const Color(0xFFEF4444), // Semantic error red
         ),
         scaffoldBackgroundColor: Colors.white,
 
-        fontFamily: 'Nexa',
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(
-            fontFamily: 'CenturyGothic',
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-          headlineMedium: TextStyle(
-            fontFamily: 'CenturyGothic',
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-          bodyLarge: TextStyle(
-            fontFamily: 'Nexa',
-            fontSize: 16,
-            color: Colors.black,
-          ),
-          bodyMedium: TextStyle(
-            fontFamily: 'Nexa',
-            fontSize: 14,
-            color: Colors.black,
+        textTheme: GoogleFonts.plusJakartaSansTextTheme(
+          const TextTheme(
+            displayLarge: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+            headlineMedium: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+            bodyLarge: TextStyle(
+              fontSize: 16,
+              color: Colors.black,
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 14,
+              color: Colors.black,
+            ),
           ),
         ),
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: false,
-          iconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(
-            fontFamily: 'CenturyGothic',
+          iconTheme: const IconThemeData(color: Colors.black),
+          titleTextStyle: GoogleFonts.plusJakartaSans(
             color: Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.bold,
@@ -140,7 +137,7 @@ class _MyAppState extends State<MyApp> {
         // 5. GLOBAL BUTTON STYLE
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0F172A),
+            backgroundColor: const Color(0xFF007AFF),
             foregroundColor: Colors.white,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),

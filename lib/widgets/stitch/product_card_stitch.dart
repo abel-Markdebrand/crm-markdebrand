@@ -98,7 +98,7 @@ class ProductCardStitch extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF14B8A6), // Brand Teal
+                    color: Color(0xFF007AFF), // Brand Teal
                     fontFamily: 'Nexa',
                   ),
                 ),
@@ -112,7 +112,7 @@ class ProductCardStitch extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF14B8A6), // Brand Teal
+                color: const Color(0xFF007AFF), // Brand Teal
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -136,13 +136,13 @@ class ProductCardStitch extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: const Color(0xFFF0F0FB),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                    border: Border.all(color: const Color(0xFFDEDEDB)),
                   ),
                   child: const Icon(
                     Icons.shopping_cart_checkout_rounded,
-                    color: Color(0xFF14B8A6), // Brand Teal
+                    color: Color(0xFF007AFF), // Brand Teal
                     size: 20,
                   ),
                 ),

@@ -161,7 +161,7 @@ class _ReportsInvoicingTabState extends State<ReportsInvoicingTab> {
           // CASH FLOW CHART (Placeholder)
           // UNPAID INVOICES (Actionable)
           Text(
-            "Facturas Pendientes (Unpaid)",
+            "Unpaid Invoices",
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -176,7 +176,7 @@ class _ReportsInvoicingTabState extends State<ReportsInvoicingTab> {
               final name = inv['name'] ?? "Invoice #$id";
               final partner = inv['partner_id'] is List
                   ? inv['partner_id'][1]
-                  : "Cliente";
+                  : "Customer";
               final amount = inv['amount_residual'] ?? 0.0;
 
               return Container(

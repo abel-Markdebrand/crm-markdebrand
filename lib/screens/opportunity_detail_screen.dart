@@ -4,6 +4,7 @@ import '../models/crm_models.dart';
 import '../screens/leads_creation_screen.dart';
 import '../screens/quote_creation_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/odoo_utils.dart';
 
 class OpportunityDetailScreen extends StatefulWidget {
   final int leadId;
@@ -62,14 +63,14 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: Image.asset(
-                  'assets/image/logo_mdb.png',
+                  'assets/image/logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
             ),
             const SizedBox(width: 10),
             const Text(
-              'Detalle de Oportunidad',
+              'Opportunity Details',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
@@ -108,10 +109,10 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                 ),
               );
             },
-            backgroundColor: const Color(0xFF0D59F2),
+            backgroundColor: const Color(0xFFC8102E),
             foregroundColor: Colors.white,
             label: const Text(
-              "COTIZAR",
+              "QUOTE",
               style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
             ),
             icon: const Icon(Icons.receipt_long),
@@ -124,9 +125,18 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  OdooUtils.getFriendlyError(snapshot.error),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
           } else if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('No se encontró la oportunidad.'));
+            return const Center(child: Text('Opportunity not found.'));
           }
 
           final lead = snapshot.data!;
@@ -151,19 +161,19 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                       if (lead.campaignName != null)
                         _buildDetailRow(
                           Icons.campaign,
-                          "Campaña",
+                          "Campaign",
                           lead.campaignName,
                         ),
                       if (lead.mediumName != null)
                         _buildDetailRow(
                           Icons.broadcast_on_home,
-                          "Medio",
+                          "Medium",
                           lead.mediumName,
                         ),
                       if (lead.sourceName != null)
                         _buildDetailRow(
                           Icons.source,
-                          "Fuente",
+                          "Source",
                           lead.sourceName,
                         ),
                     ]),
@@ -171,13 +181,13 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                   ],
 
                   // --- CONTACT SECTION ---
-                  _buildSectionHeader("INFORMACIÓN DE CONTACTO"),
+                  _buildSectionHeader("CONTACT INFORMATION"),
                   const SizedBox(height: 12),
                   _buildInfoCard([
                     _buildDetailRow(Icons.email_outlined, "Email", lead.email),
                     _buildDetailRow(
                       Icons.phone_outlined,
-                      "Teléfono",
+                      "Phone",
                       lead.phone,
                       suffix: _buildCallButton(lead.phone, isProminent: true),
                     ),
@@ -186,7 +196,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                   const SizedBox(height: 24),
 
                   // --- ADDRESS SECTION ---
-                  _buildSectionHeader("DIRECCIÓN"),
+                  _buildSectionHeader("ADDRESS"),
                   const SizedBox(height: 12),
                   _buildInfoCard([
                     _buildDetailRow(
@@ -222,7 +232,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                   const SizedBox(height: 24),
 
                   // --- DESCRIPTION SECTION ---
-                  _buildSectionHeader("NOTAS INTERNAS"),
+                  _buildSectionHeader("INTERNAL NOTES"),
                   const SizedBox(height: 12),
                   _buildInfoCard([
                     _buildDetailRow(
@@ -252,7 +262,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D59F2).withValues(alpha: 0.05),
+            color: const Color(0xFFC8102E).withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -265,12 +275,12 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D59F2).withValues(alpha: 0.1),
+                  color: const Color(0xFFC8102E).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.business_center_outlined,
-                  color: Color(0xFF0D59F2),
+                  color: Color(0xFFC8102E),
                   size: 32,
                 ),
               ),
@@ -289,7 +299,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      lead.partnerName ?? 'Sin Cliente',
+                      lead.partnerName ?? 'No Customer',
                       style: const TextStyle(
                         fontSize: 15,
                         color: Color(0xFF64748B),
@@ -364,7 +374,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
             children: [
               Expanded(
                 child: _buildStatItem(
-                  "Ingresos",
+                  "Revenue",
                   "\$${lead.expectedRevenue.toStringAsFixed(2)}",
                   Icons.attach_money_rounded,
                   Colors.teal,
@@ -373,7 +383,7 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: _buildStatItem(
-                  "Probabilidad",
+                  "Probability",
                   "${lead.probability.toInt()}%",
                   Icons.analytics_outlined,
                   Colors.orange,
@@ -543,15 +553,12 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("No se pudo iniciar la llamada")),
+              const SnackBar(content: Text("Could not start the call")),
             );
           }
         }
       },
-      icon: const Icon(
-        Icons.phone_outlined,
-        color: Colors.green,
-      ),
+      icon: const Icon(Icons.phone_outlined, color: Colors.green),
       style: IconButton.styleFrom(
         backgroundColor: Colors.green.withValues(alpha: 0.1),
         padding: const EdgeInsets.all(8),
@@ -560,9 +567,9 @@ class _OpportunityDetailScreenState extends State<OpportunityDetailScreen> {
   }
 
   String _stripHtml(String? htmlString) {
-    if (htmlString == null || htmlString.isEmpty) return "Sin descripción";
+    if (htmlString == null || htmlString.isEmpty) return "No description";
     final document = RegExp(r'<[^>]*>', multiLine: true, caseSensitive: true);
     var parsed = htmlString.replaceAll(document, '');
-    return parsed.trim().isEmpty ? "Sin descripción" : parsed.trim();
+    return parsed.trim().isEmpty ? "No description" : parsed.trim();
   }
 }

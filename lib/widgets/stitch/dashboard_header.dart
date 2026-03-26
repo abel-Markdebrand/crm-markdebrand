@@ -31,7 +31,7 @@ class DashboardHeader extends StatelessWidget {
           return ActionChip(
             onPressed: () => onStageSelected(stage.id),
             backgroundColor: isSelected
-                ? const Color(0xFF0D59F2)
+                ? const Color(0xFF007AFF)
                 : Colors.white,
             side: BorderSide(
               color: isSelected ? Colors.transparent : Colors.grey[300]!,

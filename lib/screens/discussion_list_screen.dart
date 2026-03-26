@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mvp_odoo/services/discussion_service.dart';
 import 'package:mvp_odoo/screens/discussion_chat_screen.dart';
+import 'package:mvp_odoo/services/odoo_service.dart';
 
 class DiscussionListScreen extends StatefulWidget {
   final bool showAppBar;
@@ -18,6 +20,8 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
   List<Map<String, dynamic>> _allChannels = [];
   List<Map<String, dynamic>> _filteredChannels = [];
   String? _errorMessage;
+  String? _currentUserPartnerName;
+  Map<int, String> _partnerNamesMap = {};
 
   String _selectedFilter = 'Chats'; // 'Chats' or 'Canales'
   Future<List<Map<String, dynamic>>>? _usersFuture;
@@ -27,7 +31,22 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
   void initState() {
     super.initState();
     _loadChannels();
-    _usersFuture = _discussionService.getUsers();
+    _usersFuture = _discussionService.getUsers().then((users) {
+      if (mounted) {
+        setState(() {
+          for (var user in users) {
+             final partnerData = user['partner_id'];
+             if (partnerData is List && partnerData.isNotEmpty) {
+               final id = partnerData[0] as int;
+               final name = partnerData[1] as String;
+               _partnerNamesMap[id] = name;
+             }
+          }
+          debugPrint("DiscussionListScreen: Built partner map with ${_partnerNamesMap.length} entries");
+        });
+      }
+      return users;
+    });
     _publicChannelsFuture = _discussionService.getPublicChannels();
   }
 
@@ -38,7 +57,52 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
     });
 
     try {
+      if (_currentUserPartnerName == null) {
+        try {
+          final profile = await OdooService.instance.getUserProfile();
+          _currentUserPartnerName = profile['name']?.toString();
+          debugPrint("DiscussionListScreen: Logged in as $_currentUserPartnerName");
+        } catch (_) {}
+      }
+
       final channels = await _discussionService.getChannels();
+      
+      // PROACTIVE: Fetch missing partner names in bulk
+      final Set<int> missingPartnerIds = {};
+      final myPartnerId = OdooService.instance.currentPartnerId;
+      
+      for (var channel in channels) {
+        final pIds = channel['channel_partner_ids'];
+        if (pIds is List) {
+          for (var id in pIds) {
+            if (id is int && id != myPartnerId && !_partnerNamesMap.containsKey(id)) {
+              missingPartnerIds.add(id);
+            }
+          }
+        }
+      }
+      
+      if (missingPartnerIds.isNotEmpty) {
+        debugPrint("DiscussionListScreen: Fetching ${missingPartnerIds.length} missing partner names...");
+        try {
+          final partners = await OdooService.instance.callKw(
+            model: 'res.partner',
+            method: 'search_read',
+            args: [[['id', 'in', missingPartnerIds.toList()]]],
+            kwargs: {'fields': ['id', 'name']},
+          );
+          if (partners is List) {
+            setState(() {
+              for (var p in partners) {
+                _partnerNamesMap[p['id']] = p['name']?.toString() ?? 'Desconocido';
+              }
+            });
+          }
+        } catch (e) {
+          debugPrint("DiscussionListScreen: Error fetching missing partners: $e");
+        }
+      }
+
       if (mounted) {
         setState(() {
           _allChannels = channels;
@@ -60,15 +124,19 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
     setState(() {
       if (_selectedFilter == 'Chats') {
         _filteredChannels = _allChannels.where((c) {
-          final type = c['channel_type'] ?? '';
-          return type == 'chat';
+          final type = c['channel_type']?.toString().toLowerCase() ?? 'chat';
+          // In Odoo 17, direct chats often have type 'chat' or can have no type if malformed.
+          // Fallback to chat if it's not explicitly a channel/group.
+          return type == 'chat' || (type != 'channel' && type != 'group');
         }).toList();
       } else {
         _filteredChannels = _allChannels.where((c) {
-          final type = c['channel_type'] ?? '';
-          return type != 'chat'; // 'channel', 'group', etc.
+          final type = c['channel_type']?.toString().toLowerCase() ?? '';
+          return type == 'channel' || type == 'group';
         }).toList();
       }
+      
+      debugPrint("DiscussionListScreen: Applied filter '$_selectedFilter'. Showing ${_filteredChannels.length} of ${_allChannels.length} total channels.");
     });
   }
 
@@ -193,9 +261,20 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
                             partnerId = partnerIdObj[0] as int;
                           }
 
+                          final avatarBase64 = OdooService.getBestImage(user);
+
                           return ListTile(
-                            leading: const CircleAvatar(
-                              child: Icon(Icons.person),
+                            leading: CircleAvatar(
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              backgroundImage: avatarBase64 != null
+                                  ? MemoryImage(base64Decode(avatarBase64))
+                                  : null,
+                              child: avatarBase64 == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      color: Color(0xFF64748B),
+                                    )
+                                  : null,
                             ),
                             title: Text(name),
                             onTap: () async {
@@ -332,7 +411,6 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
-                                
                                 this.context,
                                 MaterialPageRoute(
                                   builder: (_) => DiscussionChatScreen(
@@ -390,7 +468,7 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: widget.showAppBar
           ? AppBar(
-            automaticallyImplyLeading: false,
+              automaticallyImplyLeading: false,
               title: Text(
                 "Discusión",
                 style: GoogleFonts.inter(
@@ -468,13 +546,46 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
                     itemBuilder: (context, index) {
                       final channel = _filteredChannels[index];
 
-                      String name = channel['name']?.toString() ?? 'Sin nombre';
-                      if (name == 'false') name = 'Chat sin nombre';
-
-                      // Clean up Odoo auto-generated DM names like ", abel cardenas"
-                      name = name
-                          .replaceAll(RegExp(r'^,\s*'), '')
-                          .replaceAll(RegExp(r',\s*$'), '');
+                      String name = channel['display_name']?.toString() ??
+                          channel['name']?.toString() ??
+                          'Sin nombre';
+                      if (name == 'false' || name.isEmpty || name == 'Chat sin nombre') {
+                        // FALLBACK: Try to find the other partner's name from channel_partner_ids
+                        final partnerIds = channel['channel_partner_ids'];
+                        if (partnerIds is List && partnerIds.isNotEmpty) {
+                          final myPartnerId = OdooService.instance.currentPartnerId;
+                          final otherPartnerIds = partnerIds.where((id) => id != myPartnerId).toList();
+                          
+                          if (otherPartnerIds.isNotEmpty) {
+                            final otherId = otherPartnerIds.first as int;
+                            if (_partnerNamesMap.containsKey(otherId)) {
+                              name = _partnerNamesMap[otherId]!;
+                              debugPrint("DiscussionListScreen: Resolved name '$name' from partner map for ID $otherId");
+                            }
+                          }
+                        }
+                        
+                        if (name == 'false' || name.isEmpty || name == 'Chat sin nombre') {
+                          name = 'Chat sin nombre';
+                        }
+                      }
+                      
+                      if (name != 'Chat sin nombre') {
+                        // Clean up Odoo auto-generated DM names like ", abel cardenas"
+                        name = name
+                            .replaceAll(RegExp(r'^,\s*'), '')
+                            .replaceAll(RegExp(r',\s*$'), '');
+                            
+                        // If it's a DM, try to remove the current user's name to show only the other person
+                        if (_currentUserPartnerName != null && name.contains(_currentUserPartnerName!)) {
+                           // Cases: "Me, Other", "Other, Me", "Me"
+                           final parts = name.split(',').map((e) => e.trim()).toList();
+                           if (parts.length > 1) {
+                             parts.removeWhere((p) => p == _currentUserPartnerName);
+                             name = parts.join(', ');
+                           }
+                        }
+                      }
                       if (name.isEmpty) name = 'Chat sin nombre';
 
                       final type = channel['channel_type'] ?? 'channel';
@@ -518,7 +629,17 @@ class _DiscussionListScreenState extends State<DiscussionListScreen> {
                           ),
                           leading: CircleAvatar(
                             backgroundColor: bgColor,
-                            child: Icon(iconData, color: iconColor, size: 20),
+                            backgroundImage:
+                                OdooService.getBestImage(channel) != null
+                                ? MemoryImage(
+                                    base64Decode(
+                                      OdooService.getBestImage(channel)!,
+                                    ),
+                                  )
+                                : null,
+                            child: OdooService.getBestImage(channel) == null
+                                ? Icon(iconData, color: iconColor, size: 20)
+                                : null,
                           ),
                           title: Text(
                             name,

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:mvp_odoo/services/odoo_service.dart';
 import '../services/notification_service.dart';
 import 'whatsapp_chat_screen.dart';
 
@@ -72,10 +74,15 @@ class _WhatsAppListScreenState extends State<WhatsAppListScreen> {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: _getChannelColor(channel['channel_type']),
-                  child: Icon(
-                    _getChannelIcon(channel['channel_type']),
-                    color: Colors.white,
-                  ),
+                  backgroundImage: OdooService.getBestImage(channel) != null
+                      ? MemoryImage(base64Decode(OdooService.getBestImage(channel)!))
+                      : null,
+                  child: OdooService.getBestImage(channel) == null
+                      ? Icon(
+                          _getChannelIcon(channel['channel_type']),
+                          color: Colors.white,
+                        )
+                      : null,
                 ),
                 title: Text(
                   channel['display_name'] ??

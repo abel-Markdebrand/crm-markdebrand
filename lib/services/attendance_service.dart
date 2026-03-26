@@ -182,7 +182,7 @@ class AttendanceService {
       final employeeId = await _getEmployeeId(uid);
       if (employeeId == null) {
         throw Exception(
-          "El usuario actual no tiene un Empleado (HR) asociado en Odoo.",
+          "The current user does not have an associated Employee (HR) in Odoo.",
         );
       }
 

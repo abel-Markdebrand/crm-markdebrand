@@ -65,7 +65,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                   child: Text(
                     widget.value != null
                         ? widget.itemLabel(widget.value as T)
-                        : (widget.hint ?? "Seleccionar..."),
+                        : (widget.hint ?? "Select..."),
                     style: TextStyle(
                       fontFamily: 'Nexa',
                       color: widget.value != null
@@ -212,7 +212,7 @@ class _SearchDialogState<T> extends State<_SearchDialog<T>> {
               controller: _searchController,
               onChanged: _onSearchChanged,
               decoration: InputDecoration(
-                hintText: "Buscar...",
+                hintText: "Search...",
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF64748B)),
                 filled: true,
                 fillColor: const Color(0xFFF1F5F9),
@@ -231,7 +231,7 @@ class _SearchDialogState<T> extends State<_SearchDialog<T>> {
                   : _filteredItems.isEmpty
                   ? Center(
                       child: Text(
-                        "No se encontraron resultados",
+                        "No results found",
                         style: TextStyle(color: Colors.grey[500]),
                       ),
                     )

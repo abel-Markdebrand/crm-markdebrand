@@ -15,9 +15,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // CONFIGURACIÓN INTERNA: AJUSTA ESTOS VALORES EN EL CÓDIGO
+  // INTERNAL CONFIGURATION: ADJUST THESE VALUES IN CODE
   final TextEditingController _urlController = TextEditingController(
-    text: 'https://app.prismahexagon.com',
+    text: 'https://app.markdebrand.com',
   );
   final TextEditingController _dbController = TextEditingController(text: '');
   final _userController = TextEditingController();
@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) {
       setState(() {
         _urlController.text =
-            prefs.getString('odoo_url') ?? 'https://app.prismahexagon.com';
+            prefs.getString('odoo_url') ?? 'https://app.markdebrand.com';
         _dbController.text = prefs.getString('odoo_db') ?? '';
 
         if (prefs.containsKey('odoo_user')) {
@@ -62,22 +62,22 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Inicializamos el cliente
+      // Initialize client
       final url = _urlController.text.trim();
       OdooService.instance.init(url);
 
-      // Autenticación simple: Usar lo que el usuario escribió
+      // Simple authentication: Use what the user entered
       final db = _dbController.text.trim();
       final user = _userController.text.trim();
       final pass = _passwordController.text.trim();
 
       if (db.isEmpty) {
         throw OdooServiceException(
-          "Por favor ingresa el nombre de la base de datos.",
+          "Please enter the database name.",
         );
       }
 
-      // Guardar credenciales para futuro uso
+      // Save credentials for future use
       await _saveCredentials();
 
       debugPrint("LOGIN ATTEMPT: URL=$url, DB=$db, User=$user");
@@ -123,8 +123,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textMuted = Theme.of(context).colorScheme.onSurfaceVariant;
-
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -166,17 +164,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // WELCOME
                       const Text(
-                        "Welcome back",
+                        "Markdebrand",
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1,
+                          color: Color(0xFF007AFF),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        "Enter your credentials to continue",
-                        style: TextStyle(color: textMuted, fontSize: 16),
+                      const Text(
+                        "Management Portal",
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
                       ),
                       const SizedBox(height: 40),
 
@@ -266,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           );
                         },
                         child: const Text(
-                          "Cambiar Servidor / Resetear Configuración",
+                          "Change Server / Reset Configuration",
                           style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ),
@@ -304,7 +303,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: GestureDetector(
                 onTap: () => UpdateService.instance.showUpdateDialog(context),
                 child: Text(
-                  "© 2024 Markdebrand Agency • v2.4.0",
+                  "© 2024 Markdebrand • v2.4.0",
                   style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
               ),

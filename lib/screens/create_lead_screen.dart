@@ -44,7 +44,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Oportunidad creada con éxito')),
+          const SnackBar(content: Text('Opportunity created successfully')),
         );
         Navigator.pop(context);
       }
@@ -62,7 +62,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nueva Oportunidad')),
+      appBar: AppBar(title: const Text('New Opportunity')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -72,15 +72,15 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Título de Oportunidad *',
+                  labelText: 'Opportunity Title *',
                 ),
-                validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                validator: (v) => v!.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _partnerNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Nombre del Cliente / Contacto',
+                  labelText: 'Customer / Contact Name',
                 ),
               ),
               const SizedBox(height: 12),
@@ -92,14 +92,14 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Teléfono'),
+                decoration: const InputDecoration(labelText: 'Phone'),
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _revenueController,
                 decoration: const InputDecoration(
-                  labelText: 'Ingreso Esperado (\$)',
+                  labelText: 'Expected Revenue (\$)',
                 ),
                 keyboardType: TextInputType.number,
               ),
@@ -107,7 +107,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Notas / Descripción',
+                  labelText: 'Notes / Description',
                 ),
                 maxLines: 3,
               ),
@@ -119,7 +119,7 @@ class _CreateLeadScreenState extends State<CreateLeadScreen> {
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('CREAR OPORTUNIDAD'),
+                    : const Text('CREATE OPPORTUNITY'),
               ),
             ],
           ),

@@ -152,10 +152,14 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
     try {
       // 1. Fetch Partner Address (Simplified)
-      final partnerId = _invoice!['partner_id'][0];
+      final partnerData = _invoice!['partner_id'];
+      final partnerId = partnerData is List ? partnerData[0] : partnerData;
+      if (partnerId == null || partnerId == false) return;
+
       final partner = await _odoo.getContactDetail(partnerId);
+      final countryName = OdooUtils.safeM2OName(partner['country_id']);
       final address =
-          "${partner['street'] ?? ''}\n${partner['city'] ?? ''}, ${partner['country_id']?[1] ?? ''}";
+          "${OdooUtils.safeString(partner['street'])}\n${OdooUtils.safeString(partner['city'])}, $countryName";
 
       // 2. Map Lines
       final List<Map<String, dynamic>> pdfLines = _lines.map((l) {
@@ -280,7 +284,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Mardebran",
+                  "Markdebrand",
                   style: const TextStyle(
                     color: Color(0xFF0F172A), // text-slate-900
                     fontSize: 17,
@@ -485,7 +489,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      "Mardebrand",
+                                      "Markdebrand",
                                       style: TextStyle(
                                         color: Color(0xFF0F172A),
                                         fontSize: 18,
@@ -845,7 +849,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                                   Text(
                                     "\$${(_invoice!['amount_total'] as num).toStringAsFixed(2)}",
                                     style: const TextStyle(
-                                      color: Color(0xFF007AFF),
+                                      color: Color(0xFFC8102E),
                                       fontSize: 24,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -894,12 +898,12 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                         child: ElevatedButton(
                           onPressed: _confirmInvoice,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF007AFF),
+                            backgroundColor: const Color(0xFFC8102E),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 4,
                             shadowColor: const Color(
-                              0xFF007AFF,
+                              0xFFC8102E,
                             ).withValues(alpha: 0.2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

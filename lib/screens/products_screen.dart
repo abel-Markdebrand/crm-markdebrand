@@ -31,7 +31,7 @@ class _ProductsScreenState extends State<ProductsScreen>
 
   // Categorías dummy para paridad visual
   final List<String> _categories = [
-    "Todo",
+    "All",
     "Branding",
     "Diseño Web",
     "Marketing",
@@ -57,7 +57,7 @@ class _ProductsScreenState extends State<ProductsScreen>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error cargando productos: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error loading products: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -66,7 +66,7 @@ class _ProductsScreenState extends State<ProductsScreen>
 
   void _onCategorySelected(String category) {
     setState(() => _selectedCategory = category);
-    if (category == "Todo") {
+    if (category == "All") {
       _loadProducts();
     } else {
       _loadProducts(category);
@@ -98,7 +98,7 @@ class _ProductsScreenState extends State<ProductsScreen>
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Añadido ${product['name']} al carrito"),
+        content: Text("Added ${product['name']} to cart"),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -152,14 +152,14 @@ class _ProductsScreenState extends State<ProductsScreen>
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Venta y Factura generadas con éxito"),
+              content: Text("Sale and Invoice generated successfully"),
               backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Error al procesar la venta del carrito"),
+              content: Text("Error processing cart sale"),
               backgroundColor: Colors.red,
             ),
           );
@@ -214,7 +214,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                         ),
                       ),
                       Text(
-                        "${_cart.length} productos", // Changed "items" to "productos"
+                        "${_cart.length} products", // Changed "items" to "productos"
                         style: const TextStyle(
                           color: Color(
                             0xFF94A3B8,
@@ -234,7 +234,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                       final qty = _cart[id]!;
                       return ListTile(
                         title: Text(
-                          product['name'] ?? 'Insumos',
+                          product['name'] ?? 'Supplies',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
@@ -262,7 +262,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                             IconButton(
                               icon: const Icon(
                                 Icons.add_circle_outline,
-                                color: Colors.blue,
+                                color: Color(0xFF007AFF), // Markdebrand Blue
                               ),
                               onPressed: () {
                                 _addToCart(product);
@@ -284,14 +284,14 @@ class _ProductsScreenState extends State<ProductsScreen>
                       _handleCartCheckout();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D59F2),
+                      backgroundColor: const Color(0xFF007AFF), // Markdebrand Blue
                       minimumSize: const Size(double.infinity, 54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: const Text(
-                      "CONFIRMAR VENTA Y FACTURAR",
+                      "CONFIRM SALE AND BILL",
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -332,15 +332,15 @@ class _ProductsScreenState extends State<ProductsScreen>
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: const Color(0xFFFEF2F2), // Very Light Red
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                border: Border.all(color: const Color(0xFFFECACA)), // Light Red border
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.person_pin_rounded,
-                    color: Color(0xFF2563EB),
+                    color: Color(0xFF007AFF),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -348,20 +348,20 @@ class _ProductsScreenState extends State<ProductsScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "CLIENTE SELECCIONADO",
+                          "SELECTED CLIENT",
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2563EB),
+                            color: Color(0xFF007AFF),
                           ),
                         ),
                         Text(
-                          _selectedPartnerName ?? "No seleccionado",
+                          _selectedPartnerName ?? "Not selected",
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: _selectedPartnerName != null
-                                ? const Color(0xFF1E40AF)
+                                ? const Color(0xFF991B1B) // Dark Red
                                 : Colors.grey[600],
                           ),
                         ),
@@ -371,7 +371,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                   TextButton(
                     onPressed: _showPartnerSelector,
                     child: Text(
-                      _selectedPartnerName != null ? "Cambiar" : "Seleccionar",
+                      _selectedPartnerName != null ? "Change" : "Select",
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -397,7 +397,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                 child: TextField(
                   controller: _searchController,
                   decoration: const InputDecoration(
-                    hintText: "Buscar productos o servicios",
+                    hintText: "Search products or services",
                     hintStyle: TextStyle(color: Color(0xFF94A3B8)),
                     prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8)),
                     border: InputBorder.none,
@@ -434,7 +434,7 @@ class _ProductsScreenState extends State<ProductsScreen>
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "No se encontraron productos",
+                            "No products found",
                             style: TextStyle(color: Colors.grey[400]),
                           ),
                         ],
@@ -468,7 +468,7 @@ class _ProductsScreenState extends State<ProductsScreen>
       floatingActionButton: _cart.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: _showCartReview,
-              label: Text("Revisar Venta (${_cart.length})"),
+              label: Text("Review Sale (${_cart.length})"),
               icon: const Icon(Icons.shopping_cart_checkout),
               backgroundColor: const Color(0xFF0D59F2),
             )
@@ -557,7 +557,7 @@ class _PartnerPickerSheetState extends State<_PartnerPickerSheet> {
           ),
           const SizedBox(height: 16),
           const Text(
-            "Seleccionar Cliente",
+            "Select Client",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
@@ -566,7 +566,7 @@ class _PartnerPickerSheetState extends State<_PartnerPickerSheet> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Buscar cliente...",
+                hintText: "Search client...",
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -588,7 +588,7 @@ class _PartnerPickerSheetState extends State<_PartnerPickerSheet> {
                       final p = _partners[index];
                       return ListTile(
                         leading: const CircleAvatar(child: Icon(Icons.person)),
-                        title: Text(p['name'] ?? 'Sin nombre'),
+                        title: Text(p['name'] ?? 'Unnamed'),
                         subtitle: Text(p['email'] ?? p['phone'] ?? ''),
                         onTap: () {
                           widget.onPartnerSelected(p['id'], p['name']);

@@ -40,7 +40,7 @@ class _SalesScreenState extends State<SalesScreen>
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error al obtener ventas: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error fetching sales: $e')));
       }
     }
   }
@@ -229,7 +229,7 @@ class _SalesScreenState extends State<SalesScreen>
           Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[200]),
           const SizedBox(height: 16),
           Text(
-            "No hay órdenes de venta",
+            "No sales orders found",
             style: TextStyle(
               color: Colors.grey[400],
               fontSize: 16,
